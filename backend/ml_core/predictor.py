@@ -1,10 +1,13 @@
 import os
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import joblib
 import numpy as np
 import pandas as pd
 from app.db.equities_master_repo import EquitiesMasterRepo
+
+# __init__ に MacroIndicatorsRepo を追加
+from app.db.macro_indicators_repo import MacroIndicatorsRepo
 from ml_core.feature_engineer import FeatureEngineer
 
 
@@ -12,6 +15,7 @@ class Predictor:
     def __init__(self, models_dir="models"):
         self.models_dir = models_dir
         self.repo = EquitiesMasterRepo()
+        self.macro_repo = MacroIndicatorsRepo()
         self.engineer = FeatureEngineer()
         self.targets = ["target_1d", "target_5d", "target_10d"]
 
@@ -42,11 +46,24 @@ class Predictor:
         if not os.path.exists(metrics_path):
             return {}
         with open(metrics_path) as f:
-            return json.load(f)
+            data = json.load(f)
+        return data["metrics"]
 
     def _get_recent_data(self, code: str, days: int = 60):
         """指定銘柄の直近データを株価＋財務込みで取得する"""
-        since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+
+        # datetime.now() ではなく DB の最新日を基準にする
+        # （無料版J-Quantsは直近12週のデータがないため）
+        latest_date_df = pd.read_sql(
+            "SELECT MAX(Date) as latest FROM DailyQuotes WHERE Code = ?",
+            self.repo.engine,
+            params=(code,),
+        )
+        if latest_date_df.empty or latest_date_df.iloc[0]["latest"] is None:
+            return None
+
+        latest_date = pd.to_datetime(latest_date_df.iloc[0]["latest"])
+        since = (latest_date - timedelta(days=days)).strftime("%Y-%m-%d")
 
         # 株価データ
         quotes_query = """
@@ -56,6 +73,7 @@ class Predictor:
             ORDER BY q.Date ASC
         """
         quotes_df = pd.read_sql(quotes_query, self.repo.engine, params=(code, since))
+
         print(f"{code}: {quotes_df} {since}")
         if quotes_df.empty:
             return None
@@ -84,6 +102,24 @@ class Predictor:
             right_on="DiscDate",
             direction="backward",
         )
+
+        macro_df = self.macro_repo.get_all_pivoted()
+        if not macro_df.empty:
+            macro_df = macro_df.reset_index().rename(columns={"index": "Date"})
+            macro_df["Date"] = pd.to_datetime(macro_df["Date"])
+            merged_df = pd.merge_asof(
+                merged_df.sort_values("Date"),
+                macro_df.sort_values("Date"),
+                on="Date",
+                direction="backward",
+            )
+            # 変化率を追加
+            macro_cols = ["usdjpy", "sp500", "us10y"]
+            for col in macro_cols:
+                if col in merged_df.columns:
+                    merged_df[f"{col}_chg"] = merged_df[col].pct_change(
+                        fill_method=None
+                    )
 
         return merged_df
 
@@ -220,12 +256,12 @@ class Predictor:
             X_scaled = scaler.transform(X)
 
             # 予測（学習時に*100しているので/100で戻す）
-            pred_rate = float(model.predict(X_scaled)[0]) / 100
-            up_prob = float(np.clip(0.5 + pred_rate * 10, 0.0, 1.0))  # 簡易的な確率変換
+            predicted_rate = float(model.predict(X_scaled)[0]) / 100
+            up_probability = float(np.clip(0.5 + predicted_rate * 10, 0.0, 1.0))
 
             predictions[target] = {
-                "rate": round(pred_rate, 6),
-                "up_prob": round(up_prob, 4),
+                "rate": round(predicted_rate, 6),  # 騰落率
+                "up_prob": round(up_probability, 4),  # 上がる確率
             }
 
         return {

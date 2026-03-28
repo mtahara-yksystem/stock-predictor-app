@@ -1,5 +1,7 @@
 from app.api.v1.predict import router as predict_router
+from app.api.v1.recommend import router as recommend_router
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="Stock Predictor API",
@@ -7,8 +9,15 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# ルーターを登録
 app.include_router(predict_router, prefix="/api/v1", tags=["predict"])
+app.include_router(recommend_router, prefix="/api/v1", tags=["recommend"])
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")

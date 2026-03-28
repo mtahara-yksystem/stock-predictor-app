@@ -6,6 +6,9 @@ class FeatureEngineer:
     def __init__(self):
         self.target_periods = [1, 5, 10]
 
+        # マクロ指標のカラム名
+        self._macro_cols = ["usdjpy", "sp500", "crude_oil", "iron_ore", "us10y"]
+
     # ===================================================
     # プライベートメソッド（特徴量計算）
     # ===================================================
@@ -34,16 +37,63 @@ class FeatureEngineer:
         lower = sma - 2 * std
         return (series - lower) / (upper - lower).replace(0, float("nan"))
 
+    def _merge_macro(self, df: pd.DataFrame, macro_df: pd.DataFrame):
+        """
+        マクロ指標を merge_asof で結合する。
+        米国市場と日本市場では営業日が異なるため、
+        その日以前で最新のマクロデータを使う。
+        """
+        if macro_df is None or macro_df.empty:
+            return df
+
+        macro_df = macro_df.copy()
+        macro_df.index = pd.to_datetime(macro_df.index)
+        macro_df = macro_df.reset_index().rename(columns={"index": "Date"})
+        macro_df["Date"] = pd.to_datetime(macro_df["Date"])
+
+        df["Date"] = pd.to_datetime(df["Date"])
+
+        merged = pd.merge_asof(
+            df.sort_values("Date"),
+            macro_df.sort_values("Date"),
+            on="Date",
+            direction="backward",
+        )
+
+        return merged
+
     # ===================================================
     # パブリックメソッド
     # ===================================================
 
-    def create_features_and_targets(self, df: pd.DataFrame):
+    def create_features_and_targets(
+        self, df: pd.DataFrame, macro_df: pd.DataFrame = None
+    ):
+        """
+        Args:
+            df: 株価＋財務データ（get_quotes_with_financials_by_sector の返り値）
+            macro_df: マクロ指標データ（MacroIndicatorsRepo.get_all_pivoted の返り値）
+                      Noneの場合はマクロ特徴量なしで学習する
+        """
         if df.empty:
             return pd.DataFrame(), pd.DataFrame()
 
         # CodeとDateでソートして、銘柄ごとにデータが並ぶようにする
         df = df.sort_values(["Code", "Date"]).copy()
+
+        # ===================================================
+        # 0. マクロ指標を結合
+        # ===================================================
+        if macro_df is not None and not macro_df.empty:
+            df = self._merge_macro(df, macro_df)
+            print(f"✅ マクロ指標を結合しました: {self._macro_cols}")
+
+            # マクロ指標の変化率を追加（水準値より変化率の方が予測に効きやすい）
+            for col in self._macro_cols:
+                if col in df.columns:
+                    df[f"{col}_chg"] = df[col].pct_change(fill_method=None)
+        else:
+            print("⚠️ マクロ指標なしで学習します。")
 
         # ===================================================
         # 1. テクニカル特徴量（株価系）
@@ -77,49 +127,29 @@ class FeatureEngineer:
         # MACD
         df["macd"] = df.groupby("Code")["AdjC"].transform(self._calc_macd)
         df["macd_signal"] = df.groupby("Code")["AdjC"].transform(self._calc_macd_signal)
-        df["macd_hist"] = df["macd"] - df["macd_signal"]  # 勢いの変化
+        df["macd_hist"] = df["macd"] - df["macd_signal"]
 
         # ボリンジャーバンド位置（%B）
         df["bb_percent"] = df.groupby("Code")["AdjC"].transform(self._calc_bb_percent)
 
-        # 出来高変化率（直近の出来高が20日平均の何倍か）
+        # 出来高変化率
         df["volume_ratio"] = df.groupby("Code")["AdjVo"].transform(
             lambda x: x / x.rolling(window=20).mean()
         )
 
         # ===================================================
-        # 2. 財務特徴量（FinancialSummariesから結合済みのカラムを使用）
+        # 2. 財務特徴量
         # ===================================================
 
-        # 財務カラムを数値型に変換（DBから文字列で取得される場合があるため）
         financial_raw_cols = ["EPS", "BPS", "EqAR", "Sales", "OP", "NP", "Eq"]
         for col in financial_raw_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
-        # PER（株価収益率）: 低いほど割安
-        df["per"] = np.where(
-            df["EPS"] > 0,
-            df["AdjC"] / df["EPS"],
-            np.nan,  # EPSが0以下は意味がないのでNaN
-        )
-
-        # 自己資本比率（そのまま使用）
+        df["per"] = np.where(df["EPS"] > 0, df["AdjC"] / df["EPS"], np.nan)
         df["eq_ar"] = df["EqAR"]
-
-        # 営業利益率: 高いほど収益性が高い
-        df["op_margin"] = np.where(
-            df["Sales"] > 0,
-            df["OP"] / df["Sales"],
-            np.nan,
-        )
-
-        # ROE（自己資本利益率）: 高いほど効率的
-        df["roe"] = np.where(
-            df["Eq"] > 0,
-            df["NP"] / df["Eq"],
-            np.nan,
-        )
+        df["op_margin"] = np.where(df["Sales"] > 0, df["OP"] / df["Sales"], np.nan)
+        df["roe"] = np.where(df["Eq"] > 0, df["NP"] / df["Eq"], np.nan)
 
         # ===================================================
         # 3. マルチターゲットの生成
@@ -136,10 +166,8 @@ class FeatureEngineer:
         # 4. データのクリーニング
         # ===================================================
 
-        # inf を NaN に変換
         df = df.replace([np.inf, -np.inf], np.nan)
 
-        # 必須カラムがNaNの行を除外
         essential_cols = [
             "sma5",
             "sma25",
@@ -179,19 +207,18 @@ class FeatureEngineer:
             "AdjFactor",
             "UpperLimit",
             "LowerLimit",
-            "DiscDate",  # merge_asof で追加された結合キー
+            "DiscDate",
             "EPS",
-            "BPS",  # per に変換済みなので除外
+            "BPS",
             "Sales",
             "OP",
             "NP",
-            "Eq",  # op_margin / roe に変換済みなので除外
-            "EqAR",  # eq_ar として変換済み
+            "Eq",
+            "EqAR",
         ]
         actual_drop_cols = [c for c in drop_cols if c in df.columns]
         feature_cols = [c for c in df.columns if c not in actual_drop_cols]
 
-        # Date をインデックスに設定して返す
         df_features = df[feature_cols].copy()
         df_features.index = df["Date"]
 

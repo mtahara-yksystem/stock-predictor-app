@@ -5,6 +5,10 @@ from ml_core.predictor import Predictor
 router = APIRouter()
 predictor = Predictor()
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 @router.get("/predict/{code}", response_model=PredictResponse)
 async def predict_stock(code: str):
@@ -24,6 +28,7 @@ async def predict_stock(code: str):
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        logger.error(e, stack_info=True)
         raise HTTPException(
             status_code=500, detail=f"予測中にエラーが発生しました: {e}"
         )

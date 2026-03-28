@@ -4,32 +4,27 @@ from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.preprocessing import StandardScaler
 
 
-def build_and_train_model(X_train, y_train, X_val, y_val):
+def build_and_train_model(
+    X_train,
+    y_train,
+    X_val,
+    y_val,
+    max_depth: int = 6,
+    colsample_bytree: float = 0.7,
+):
     y_train_scaled = y_train * 100
     y_val_scaled = y_val * 100
 
     scaler = StandardScaler()
-
-    # デバッグ: NaNの内訳をカラムごとに表示
-    nan_per_col = X_train.isna().sum()
-    nan_per_col = nan_per_col[nan_per_col > 0]
-    if not nan_per_col.empty:
-        print(f"⚠️ NaNがあるカラム:\n{nan_per_col}")
-    else:
-        print("✅ NaNなし")
-
-    scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
-    X_val_scaled = scaler.transform(
-        X_val
-    )  # fit済みのscalerでtransformのみ（データリーク防止）
+    X_val_scaled = scaler.transform(X_val)  # fit済みのscalerでtransformのみ（データリーク防止）
 
     model = xgb.XGBRegressor(
         n_estimators=2000,
         learning_rate=0.01,
-        max_depth=7,
+        max_depth=max_depth,
         subsample=0.8,
-        colsample_bytree=0.8,
+        colsample_bytree=colsample_bytree,
         random_state=42,
         n_jobs=-1,
         early_stopping_rounds=100,
@@ -37,8 +32,7 @@ def build_and_train_model(X_train, y_train, X_val, y_val):
 
     print("🌲 XGBoost エンジンを再教育中...")
     model.fit(
-        X_train_scaled,
-        y_train_scaled,
+        X_train_scaled, y_train_scaled,
         eval_set=[(X_val_scaled, y_val_scaled)],
         verbose=False,
     )
