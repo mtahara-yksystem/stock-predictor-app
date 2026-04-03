@@ -9,6 +9,7 @@ class PredictionDetail(BaseModel):
 class MetricDetail(BaseModel):
     mae: float
     r2: float
+    direction_accuracy: float  # 方向正解率（例: 0.54 = 54%）
 
 
 class PredictResponse(BaseModel):

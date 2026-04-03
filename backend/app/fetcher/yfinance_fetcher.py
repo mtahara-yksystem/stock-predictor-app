@@ -12,7 +12,7 @@ MACRO_TICKERS = {
 
 
 class YFinanceFetcher:
-    def fetch_macro_indicators(self, days_back: int = 730):
+    def fetch_macro_indicators(self, days_back: int = 1825):
         """
         マクロ指標の終値を取得してDataFrameで返す。
 

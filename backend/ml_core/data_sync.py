@@ -29,7 +29,7 @@ class DataSync:
             self.db.upsert("EquitiesMaster", df_master)
             print(f"✅ {len(df_master)} 銘柄を更新。")
 
-    def sync_daily_quotes(self, code: str, days_back=730):
+    def sync_daily_quotes(self, code: str, days_back=None):
         """指定した1銘柄の株価を同期する"""
         latest = self.db.get_latest_date("DailyQuotes", code)
 
@@ -37,10 +37,12 @@ class DataSync:
             start_date = (
                 datetime.strptime(latest, "%Y-%m-%d") + timedelta(days=1)
             ).strftime("%Y-%m-%d")
-        else:
+        elif days_back:
             start_date = (datetime.now() - timedelta(days=days_back)).strftime(
                 "%Y-%m-%d"
             )
+        else:
+            start_date = days_back
 
         print(f"📥 {code}: {start_date} からの差分を取得...")
 

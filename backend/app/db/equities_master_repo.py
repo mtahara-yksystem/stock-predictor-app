@@ -29,14 +29,17 @@ class EquitiesMasterRepo(Database):
 
     def get_learning_targets(self, sector_code: str, limit=20):
         """
-        学習対象銘柄のコードと会社名を一括取得
+        学習対象銘柄のコードと会社名を一括取得。
+        プライム市場かつ中型株以上に絞る（流動性確保のため）
         """
-        query = f"""SELECT Code, CoName FROM {self.table_name} WHERE S17 = ? LIMIT ?"""
-
-        # DataFrameとして取得
+        query = f"""
+            SELECT Code, CoName FROM {self.table_name}
+            WHERE S17 = ?
+            AND Mkt = '0111'
+            AND ScaleCat IN ('TOPIX Core30', 'TOPIX Large70', 'TOPIX Mid400')
+            LIMIT ?
+        """
         df = pd.read_sql(query, self.engine, params=(sector_code, limit))
-
-        # リスト形式で返す [(Code, CoName), (Code, CoName), ...]
         return df.to_records(index=False).tolist()
 
     def get_sector_info_by_code(self, s17_code: str):
@@ -61,39 +64,39 @@ class EquitiesMasterRepo(Database):
     def get_quotes_with_financials_by_sector(self, s17_code: str):
         """
         指定セクターの株価データに、その日時点で最新の財務データを結合して返す。
-        merge_asof を使うことでルックアヘッドバイアスを回避する。
+        対象銘柄は get_learning_targets で絞った銘柄のみ。
         """
-        # 1. 株価データを取得
+        # 1. 対象銘柄を get_learning_targets から取得（選定基準を一元化）
+        targets = self.get_learning_targets(s17_code)
+        if not targets:
+            return pd.DataFrame()
+        target_codes = [code for code, _ in targets]
+        placeholders = ",".join("?" * len(target_codes))
+
+        # 2. 株価データを取得
         quotes_query = f"""
             SELECT q.* FROM DailyQuotes q
-            JOIN {self.table_name} m ON q.Code = m.Code
-            WHERE m.S17 = ?
+            WHERE q.Code IN ({placeholders})
             ORDER BY q.Code ASC, q.Date ASC
         """
-        quotes_df = pd.read_sql(quotes_query, self.engine, params=(str(s17_code),))
+        quotes_df = pd.read_sql(quotes_query, self.engine, params=tuple(target_codes))
 
-        # 2. 財務データを取得（必要なカラムに絞る）
-        financials_query = """
-            SELECT
-                Code,
-                DiscDate,
-                EPS,
-                BPS,
-                EqAR,
-                Sales,
-                OP,
-                NP,
-                Eq
+        # 3. 財務データを取得
+        financials_query = f"""
+            SELECT Code, DiscDate, EPS, BPS, EqAR, Sales, OP, NP, Eq
             FROM FinancialSummaries
+            WHERE Code IN ({placeholders})
             ORDER BY Code ASC, DiscDate ASC
         """
-        financials_df = pd.read_sql(financials_query, self.engine)
+        financials_df = pd.read_sql(
+            financials_query, self.engine, params=tuple(target_codes)
+        )
 
-        # 3. 日付型に統一
+        # 4. 日付型に統一
         quotes_df["Date"] = pd.to_datetime(quotes_df["Date"])
         financials_df["DiscDate"] = pd.to_datetime(financials_df["DiscDate"])
 
-        # 4. merge_asof で銘柄ごとに「その日以前の最新財務データ」を結合
+        # 5. merge_asof で銘柄ごとに「その日以前の最新財務データ」を結合
         merged_parts = []
         for code, quote_group in quotes_df.groupby("Code"):
             fin_group = financials_df[financials_df["Code"] == code].sort_values(
@@ -103,10 +106,10 @@ class EquitiesMasterRepo(Database):
                 continue
             merged = pd.merge_asof(
                 quote_group.sort_values("Date"),
-                fin_group.drop(columns=["Code"]),  # Code重複を避ける
+                fin_group.drop(columns=["Code"]),
                 left_on="Date",
                 right_on="DiscDate",
-                direction="backward",  # その日以前で最新
+                direction="backward",
             )
             merged_parts.append(merged)
 
@@ -117,7 +120,6 @@ class EquitiesMasterRepo(Database):
             pd.concat(merged_parts).sort_values(["Code", "Date"]).reset_index(drop=True)
         )
 
-        # 5. 財務データがまだない行（上場直後など）は除外
         financial_cols = ["EPS", "BPS", "EqAR", "Sales", "OP", "NP", "Eq"]
         result_df = result_df.dropna(subset=financial_cols, how="all")
 

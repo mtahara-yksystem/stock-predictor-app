@@ -45,7 +45,7 @@ class Trainer:
 
         # --- データの分割 (Train/Test) ---
         # 日付インデックスで分割（銘柄順にならないようにする）
-        split_date = X.index.sort_values()[int(len(X) * 0.8)]
+        split_date = X.index.sort_values()[int(len(X) * 0.9)]
         X_train = X[X.index <= split_date]
         X_test = X[X.index > split_date]
 
@@ -83,8 +83,11 @@ class Trainer:
             )
 
             # --- 評価 ---
-            preds, mae, r2 = evaluate_model(model, scaler, X_test, y_test)
-            print(f"📊 {target_col} 評価結果 -> MAE: {mae:.4f}, R2: {r2:.4f}")
+            preds, mae, r2, dir_acc = evaluate_model(model, scaler, X_test, y_test)
+            print(
+                f"📊 {target_col} 評価結果 -> "
+                f"MAE: {mae:.4f}, R2: {r2:.4f}, 方向正解率: {dir_acc:.4f}"
+            )
 
             # --- 保存 ---
             save_data = {
@@ -95,7 +98,11 @@ class Trainer:
             model_path = os.path.join(self.model_dir, f"model_{target_col}.joblib")
             joblib.dump(save_data, model_path)
 
-            metrics_summary[target_col] = {"mae": mae, "r2": r2}
+            metrics_summary[target_col] = {
+                "mae": mae,
+                "r2": r2,
+                "direction_accuracy": dir_acc,
+            }
             hyperparams_summary[target_col] = params
 
         # --- metrics.json に評価結果とハイパーパラメータをまとめて保存 ---

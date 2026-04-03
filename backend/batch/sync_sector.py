@@ -45,5 +45,5 @@ def run_sector_sync(sector_code="7", limit=20):
 
 
 if __name__ == "__main__":
-    # まずは自動車セクター('7')の20銘柄で試してみる
+    # まずは('7')の20銘柄で試してみる
     run_sector_sync(sector_code="7", limit=20)
