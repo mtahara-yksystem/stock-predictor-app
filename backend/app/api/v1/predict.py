@@ -1,34 +1,28 @@
+from app.db.predictions_cache_repo import PredictionsCacheRepo
 from app.schemas.predict import PredictResponse
 from fastapi import APIRouter, HTTPException
-from ml_core.predictor import Predictor
 
 router = APIRouter()
-predictor = Predictor()
-
-import logging
-
-logger = logging.getLogger(__name__)
+cache_repo = PredictionsCacheRepo()
 
 
 @router.get("/predict/{code}", response_model=PredictResponse)
 async def predict_stock(code: str):
     """
-    指定した銘柄コードの株価予測を返す。
+    指定した銘柄コードの最新予測結果を返す。
+    予測結果は日次バッチ（predict_all.py）によってDBに保存済みのものを返す。
 
     - **code**: 銘柄コード（例: 5401）
     """
-    try:
-        result = predictor.predict(code)
-        return result
-    except FileNotFoundError as e:
+    result = cache_repo.get_latest(code)
+
+    if result is None:
         raise HTTPException(
             status_code=404,
-            detail=f"モデルが見つかりません。先に学習バッチを実行してください。: {e}",
+            detail=(
+                f"銘柄 {code} の予測結果がDBに存在しません。"
+                "先に batch/predict_all.py を実行してください。"
+            ),
         )
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error(e, stack_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"予測中にエラーが発生しました: {e}"
-        )
+
+    return result

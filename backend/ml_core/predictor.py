@@ -1,5 +1,5 @@
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import joblib
 import numpy as np
@@ -269,6 +269,7 @@ class Predictor:
             "company_name": company_name,
             "current_price": current_price,
             "price_change_rate": round(price_change_rate, 6),
+            "pred_date": datetime.now().strftime("%Y-%m-%d"),  # ← 追加
             "predictions": predictions,
             "metrics": metrics,
         }

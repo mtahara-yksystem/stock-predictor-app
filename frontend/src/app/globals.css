@@ -14,6 +14,7 @@
   --accent-dim:  #005f73;
   --up:          #00ff88;
   --down:        #ff4466;
+  --yellow:      #f0c040;
   --text-primary:   #e8f4f8;
   --text-secondary: #6a8fa8;
   --text-muted:     #3a5068;
@@ -365,28 +366,61 @@ body {
   color: var(--text-secondary);
 }
 
-/* R2バー */
+/* カラーユーティリティ */
+.text-up     { color: var(--up); }
+.text-down   { color: var(--down); }
+.text-yellow { color: var(--yellow); }
+
+/* 方向正解率バー */
 .r2-bar-bg {
   height: 3px;
   background: var(--border);
   border-radius: 2px;
-  overflow: hidden;
+  overflow: visible;
   margin-bottom: 4px;
+  position: relative;
 }
 
-.r2-bar-fill {
+.dir-bar-fill {
   height: 100%;
-  background: var(--accent-dim);
   border-radius: 2px;
   transition: width 0.8s ease;
 }
 
-.r2-bar-label {
+.bar-markers {
+  position: relative;
+  height: 14px;
+}
+
+.bar-marker-50 {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   font-family: var(--font-mono);
   font-size: 9px;
   color: var(--text-muted);
-  letter-spacing: 0.1em;
-  text-align: right;
+}
+
+.bar-marker-50::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 4px;
+  background: var(--text-muted);
+}
+
+.dir-acc-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  vertical-align: middle;
+  letter-spacing: 0.05em;
 }
 
 /* ===================================================

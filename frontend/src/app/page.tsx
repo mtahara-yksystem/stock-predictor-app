@@ -14,6 +14,7 @@ interface PredictionDetail {
 interface MetricDetail {
   mae: number;
   r2: number;
+  direction_accuracy: number;  // 方向正解率
 }
 
 interface PredictResponse {
@@ -47,6 +48,13 @@ const formatProb = (prob: number) => `${(prob * 100).toFixed(1)}%`;
 const formatPrice = (price: number) =>
   price.toLocaleString("ja-JP", { style: "currency", currency: "JPY" });
 
+// 方向正解率のラベルと色
+const getDirAccLabel = (acc: number) => {
+  if (acc >= 0.6) return { label: "高", color: "var(--up)" };
+  if (acc >= 0.5) return { label: "中", color: "var(--yellow)" };
+  return { label: "低", color: "var(--text-muted)" };
+};
+
 // ===================================================
 // コンポーネント
 // ===================================================
@@ -63,10 +71,12 @@ function PredictionCard({
   const isUp = prediction.rate >= 0;
   const probColor =
     prediction.up_prob >= 0.6
-      ? "text-emerald-400"
+      ? "text-up"
       : prediction.up_prob >= 0.5
-      ? "text-yellow-400"
-      : "text-red-400";
+      ? "text-yellow"
+      : "text-down";
+
+  const dirAcc = getDirAccLabel(metric.direction_accuracy);
 
   return (
     <div className="prediction-card">
@@ -85,6 +95,7 @@ function PredictionCard({
 
       <div className="card-divider" />
 
+      {/* 評価指標 */}
       <div className="card-metrics">
         <div className="metric-item">
           <span className="metric-label">R²</span>
@@ -94,16 +105,34 @@ function PredictionCard({
           <span className="metric-label">MAE</span>
           <span className="metric-value">{metric.mae.toFixed(4)}</span>
         </div>
+        <div className="metric-item">
+          <span className="metric-label">方向正解率</span>
+          <span className="metric-value" style={{ color: dirAcc.color }}>
+            {formatProb(metric.direction_accuracy)}
+            <span className="dir-acc-badge">{dirAcc.label}</span>
+          </span>
+        </div>
       </div>
 
-      {/* R2スコアの視覚的バー */}
+      {/* 方向正解率バー */}
       <div className="r2-bar-bg">
         <div
-          className="r2-bar-fill"
-          style={{ width: `${Math.min(metric.r2 * 100 * 5, 100)}%` }}
+          className="dir-bar-fill"
+          style={{
+            width: `${metric.direction_accuracy * 100}%`,
+            background:
+              metric.direction_accuracy >= 0.6
+                ? "var(--up)"
+                : metric.direction_accuracy >= 0.5
+                ? "var(--yellow)"
+                : "var(--text-muted)",
+          }}
         />
       </div>
-      <div className="r2-bar-label">モデル精度</div>
+      {/* 50%ラインのマーカー */}
+      <div className="bar-markers">
+        <span className="bar-marker-50">50%</span>
+      </div>
     </div>
   );
 }
@@ -146,9 +175,7 @@ export default function Home() {
   };
 
   const priceChangeColor =
-    result && result.price_change_rate >= 0
-      ? "text-emerald-400"
-      : "text-red-400";
+    result && result.price_change_rate >= 0 ? "rate-up" : "rate-down";
 
   return (
     <main className="main">
