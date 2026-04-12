@@ -5,7 +5,7 @@ from app.fetcher.jquants_fetcher import JQuantsFetcher
 from ml_core.data_sync import DataSync
 
 
-def run_sector_sync(sector_code="7", limit=20):
+def run_sector_sync(target_s17, limit=20):
     """
     指定したセクターの銘柄を巡回してDBを更新する
     """
@@ -14,8 +14,8 @@ def run_sector_sync(sector_code="7", limit=20):
     repo = EquitiesMasterRepo()
 
     # 1. 銘柄リストを取得
-    targets = repo.get_learning_targets(sector_code, limit=limit)
-    print(f"🚀 セクター {sector_code} の {len(targets)} 銘柄を同期開始...")
+    targets = repo.get_learning_targets(target_s17, limit=limit)
+    print(f"🚀 セクター {target_s17} の {len(targets)} 銘柄を同期開始...")
 
     for i, (code, company_name) in enumerate(targets):
         retry_count = 0
@@ -42,6 +42,13 @@ def run_sector_sync(sector_code="7", limit=20):
                 break  # 429以外のエラーは飛ばす
 
 
+def run_all_sector_sync():
+    """
+    全セクターの銘柄を巡回してDBを更新する
+    """
+    for target_s17 in EquitiesMasterRepo.S17_CODE_LIST:
+        run_sector_sync(target_s17=target_s17, limit=20)
+
+
 if __name__ == "__main__":
-    # まずは('7')の20銘柄で試してみる
-    run_sector_sync(sector_code="7", limit=20)
+    run_all_sector_sync()

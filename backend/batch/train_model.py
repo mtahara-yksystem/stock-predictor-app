@@ -3,10 +3,13 @@ from app.db.macro_indicators_repo import MacroIndicatorsRepo
 from ml_core.feature_engineer import FeatureEngineer
 from ml_core.trainer import Trainer
 
-if __name__ == "__main__":
+
+def run_train(target_s17):
+    """
+    指定銘柄を学習する
+    """
     repo = EquitiesMasterRepo()
     macro_repo = MacroIndicatorsRepo()
-    target_s17 = "7"
 
     # 1. セクター情報を取得
     sector = repo.get_sector_info_by_code(target_s17)
@@ -32,3 +35,15 @@ if __name__ == "__main__":
 
     trainer = Trainer(target_s17, sector["S17NmEn"])
     trainer.train(X, y_all)
+
+
+def run_all_train():
+    """
+    全セクターの銘柄を学習する
+    """
+    for target_s17 in EquitiesMasterRepo.S17_CODE_LIST:
+        run_all_train(target_s17=target_s17)
+
+
+if __name__ == "__main__":
+    run_all_train()

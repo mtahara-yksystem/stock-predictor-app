@@ -1,9 +1,13 @@
+from typing import Final
+
 import pandas as pd
 
 from .base import Database
 
 
 class EquitiesMasterRepo(Database):
+    S17_CODE_LIST: Final = tuple(str(i) for i in range(1, 18))
+
     def __init__(self):
         super().__init__()
         self.table_name = "EquitiesMaster"
