@@ -42,7 +42,7 @@ def run_all_train():
     全セクターの銘柄を学習する
     """
     for target_s17 in EquitiesMasterRepo.S17_CODE_LIST:
-        run_all_train(target_s17=target_s17)
+        run_train(target_s17=target_s17)
 
 
 if __name__ == "__main__":
