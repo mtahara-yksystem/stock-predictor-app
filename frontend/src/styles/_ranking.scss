@@ -1,0 +1,293 @@
+@use './variables' as *;
+@use './mixins' as *;
+
+// ===================================================
+// Ranking Controls
+// ===================================================
+.ranking-controls {
+  padding: $spacing-32 $spacing-24;
+  border-bottom: 1px solid $border;
+}
+
+.controls-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-28;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-12;
+}
+
+.control-label {
+  @include mono-label;
+  font-weight: 700;
+}
+
+// ===================================================
+// Tab Buttons
+// ===================================================
+.tab-buttons {
+  display: flex;
+  gap: $spacing-8;
+  flex-wrap: wrap;
+
+  @include responsive(md) {
+    flex-direction: column;
+  }
+}
+
+.tab-btn {
+  @include button-base;
+  padding: $spacing-12 $spacing-20;
+  background: $bg-card;
+  border: 1px solid $border;
+  color: $text-secondary;
+  font-size: $font-size-11;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: $spacing-8;
+
+  &:hover:not(:disabled) {
+    background: $bg-surface;
+    border-color: $border-bright;
+    color: $text-primary;
+  }
+
+  &-active {
+    background: $accent;
+    color: $bg;
+    border-color: $accent;
+  }
+
+  @include responsive(md) {
+    width: 100%;
+  }
+}
+
+.tab-icon {
+  font-size: $font-size-16;
+}
+
+// ===================================================
+// Period Buttons
+// ===================================================
+.period-buttons {
+  display: flex;
+  gap: $spacing-8;
+}
+
+.period-btn {
+  @include button-base;
+  padding: $spacing-10 $spacing-18;
+  background: $bg-card;
+  border: 1px solid $border;
+  color: $text-secondary;
+  font-size: $font-size-11;
+  letter-spacing: 0.08em;
+
+  &:hover:not(:disabled) {
+    background: $bg-surface;
+    border-color: $border-bright;
+  }
+
+  &-active {
+    background: $up;
+    color: $bg;
+    border-color: $up;
+  }
+}
+
+// ===================================================
+// Loading
+// ===================================================
+.loading-box {
+  max-width: 960px;
+  margin: $spacing-60 auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-16;
+}
+
+.loading-text {
+  color: $text-muted;
+  font-family: $font-mono;
+  font-size: $font-size-11;
+  letter-spacing: 0.1em;
+}
+
+// ===================================================
+// Ranking Section
+// ===================================================
+.ranking-section {
+  max-width: 1200px;
+  margin: $spacing-32 auto $spacing-80;
+  padding: 0 $spacing-24;
+}
+
+.ranking-meta {
+  @include flex-between;
+  margin-bottom: $spacing-20;
+  padding: $spacing-12 $spacing-16;
+  background: $bg-card;
+  border: 1px solid $border;
+  border-radius: $radius-md;
+
+  @include responsive(md) {
+    flex-direction: column;
+    gap: $spacing-8;
+  }
+}
+
+.meta-item {
+  display: flex;
+  gap: $spacing-8;
+  align-items: baseline;
+}
+
+.meta-label {
+  color: $text-muted;
+  font-family: $font-mono;
+  font-size: $font-size-10;
+  letter-spacing: 0.1em;
+}
+
+.meta-value {
+  @include mono-value;
+  font-size: $font-size-11;
+}
+
+// ===================================================
+// Ranking Table
+// ===================================================
+.ranking-table-wrapper {
+  overflow-x: auto;
+  border-radius: $radius-lg;
+  border: 1px solid $border;
+  background: $bg-card;
+}
+
+.ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  thead {
+    background: $bg-surface;
+    border-bottom: 1px solid $border-bright;
+  }
+
+  th {
+    padding: $spacing-14 $spacing-16;
+    text-align: left;
+    @include mono-label;
+
+    &.th-rank { width: 70px; text-align: center; }
+    &.th-code { width: 90px; }
+    &.th-name { width: 180px; }
+    &.th-value { width: 110px; text-align: right; }
+    &.th-return { width: 110px; text-align: right; }
+    &.th-prob { width: 100px; text-align: right; }
+    &.th-dir { width: 130px; text-align: right; }
+    &.th-r2 { width: 90px; text-align: right; }
+  }
+
+  td {
+    padding: $spacing-16;
+    font-size: $font-size-13;
+  }
+
+  @include responsive(md) {
+    font-size: $font-size-11;
+
+    th, td {
+      padding: $spacing-10 $spacing-8;
+    }
+  }
+}
+
+.table-row {
+  border-bottom: 1px solid $border;
+  transition: background $transition-normal;
+
+  &:hover {
+    background: rgba(0, 212, 255, 0.03);
+  }
+}
+
+// ===================================================
+// Table Cells
+// ===================================================
+.td-rank {
+  text-align: center;
+}
+
+.rank-badge {
+  font-size: $spacing-20;
+  font-weight: 700;
+  font-family: $font-mono;
+
+  @include responsive(md) {
+    font-size: $font-size-16;
+  }
+}
+
+.td-code {
+  font-family: $font-mono;
+  letter-spacing: 0.08em;
+}
+
+.code-link {
+  color: $accent;
+  text-decoration: none;
+  font-weight: 700;
+  transition: opacity $transition-normal;
+
+  &:hover {
+    opacity: 0.7;
+  }
+}
+
+.td-name {
+  font-weight: 500;
+  color: $text-primary;
+}
+
+.value-highlight {
+  @include mono-value;
+  font-size: $font-size-16;
+  color: $up;
+  letter-spacing: 0.02em;
+
+  @include responsive(md) {
+    font-size: $font-size-13;
+  }
+}
+
+.td-value,
+.td-return,
+.td-prob,
+.td-dir,
+.td-r2 {
+  text-align: right;
+  font-family: $font-mono;
+}
+
+.dir-badge-inline {
+  display: inline-block;
+  margin-left: $spacing-6;
+  padding: 2px $spacing-6;
+  border-radius: $radius-sm;
+  font-family: $font-mono;
+  font-size: $font-size-9;
+  font-weight: 700;
+  color: $bg;
+  vertical-align: middle;
+  letter-spacing: 0.05em;
+}

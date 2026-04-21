@@ -1,0 +1,489 @@
+// frontend/app/globals.scss
+
+@use './variables' as *;
+@use './mixins' as *;
+
+// ===================================================
+// Fonts
+// ===================================================
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans+JP:wght@300;400;500&display=swap');
+
+// ===================================================
+// CSS Variables (互換性のため残す)
+// ===================================================
+:root {
+  --bg: #{$bg};
+  --bg-surface: #{$bg-surface};
+  --bg-card: #{$bg-card};
+  --bg-input: #{$bg-input};
+  --border: #{$border};
+  --border-bright: #{$border-bright};
+  --accent: #{$accent};
+  --accent-dim: #{$accent-dim};
+  --up: #{$up};
+  --down: #{$down};
+  --yellow: #{$yellow};
+  --text-primary: #{$text-primary};
+  --text-secondary: #{$text-secondary};
+  --text-muted: #{$text-muted};
+  --font-mono: #{$font-mono};
+  --font-body: #{$font-body};
+}
+
+// ===================================================
+// Reset & Base
+// ===================================================
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: $bg;
+  color: $text-primary;
+  font-family: $font-body;
+  min-height: 100vh;
+
+  // グリッドノイズ背景
+  background-image:
+    linear-gradient(rgba(0, 212, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 212, 255, 0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+// ===================================================
+// Header
+// ===================================================
+.header {
+  border-bottom: 1px solid $border;
+  padding: $spacing-20 0;
+  position: sticky;
+  top: 0;
+  background: rgba(8, 12, 16, 0.92);
+  backdrop-filter: blur(12px);
+  z-index: 100;
+}
+
+.header-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 $spacing-24;
+  display: flex;
+  align-items: baseline;
+  gap: $spacing-20;
+}
+
+.logo {
+  font-family: $font-mono;
+  font-size: $font-size-18;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.logo-bracket {
+  color: $accent;
+}
+
+.logo-text {
+  color: $text-primary;
+  margin: 0 $spacing-4;
+}
+
+.header-sub {
+  font-family: $font-mono;
+  font-size: $font-size-11;
+  color: $text-muted;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+// ===================================================
+// Navigation
+// ===================================================
+.nav-section {
+  border-bottom: 1px solid $border;
+  padding: 0 $spacing-24;
+  background: $bg-surface;
+}
+
+.nav-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  gap: $spacing-4;
+}
+
+.nav-link {
+  padding: $spacing-14 $spacing-20;
+  color: $text-muted;
+  text-decoration: none;
+  font-family: $font-mono;
+  font-size: $font-size-11;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-bottom: 2px solid transparent;
+  transition: all $transition-normal;
+
+  &:hover {
+    color: $text-secondary;
+    background: rgba(0, 212, 255, 0.03);
+  }
+
+  &-active {
+    color: $accent;
+    border-bottom-color: $accent;
+  }
+}
+
+// ===================================================
+// Main
+// ===================================================
+.main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 $spacing-24 $spacing-80;
+}
+
+// ===================================================
+// Search Section
+// ===================================================
+.search-section {
+  padding: $spacing-60 0 $spacing-40;
+}
+
+.search-inner {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-12;
+}
+
+.search-label {
+  @include mono-label;
+  color: $accent;
+}
+
+.search-row {
+  display: flex;
+  gap: $spacing-12;
+  align-items: stretch;
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  background: $bg-input;
+  border: 1px solid $border-bright;
+  border-radius: $radius-md;
+  padding: 0 $spacing-16;
+  gap: $spacing-10;
+  transition: border-color $transition-normal;
+  flex: 0 0 200px;
+
+  &:focus-within {
+    border-color: $accent;
+    box-shadow: 0 0 0 1px $accent-dim;
+  }
+}
+
+.input-prefix {
+  font-family: $font-mono;
+  font-size: $font-size-18;
+  color: $accent;
+}
+
+.code-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: $font-mono;
+  font-size: $font-size-24;
+  font-weight: 700;
+  color: $text-primary;
+  width: 100%;
+  letter-spacing: 0.1em;
+
+  &::placeholder {
+    color: $text-muted;
+  }
+}
+
+.predict-btn {
+  @include button-base;
+  background: $accent;
+  color: $bg;
+  padding: 0 $spacing-32;
+  font-size: $font-size-13;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    opacity: 0.85;
+    transform: translateY(-1px);
+  }
+}
+
+.btn-loading {
+  display: flex;
+  gap: $spacing-4;
+  align-items: center;
+}
+
+.loading-dot {
+  width: 6px;
+  height: 6px;
+  background: $bg;
+  border-radius: 50%;
+  animation: blink 1.2s infinite;
+
+  &:nth-child(2) { animation-delay: 0.2s; }
+  &:nth-child(3) { animation-delay: 0.4s; }
+}
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.2; }
+  40% { opacity: 1; }
+}
+
+// ===================================================
+// Error
+// ===================================================
+.error-box {
+  background: rgba(255, 68, 102, 0.1);
+  border: 1px solid rgba(255, 68, 102, 0.3);
+  border-radius: $radius-md;
+  padding: $spacing-14 $spacing-18;
+  font-family: $font-mono;
+  font-size: $font-size-13;
+  color: $down;
+  margin-bottom: $spacing-24;
+}
+
+.error-icon {
+  margin-right: $spacing-8;
+}
+
+// ===================================================
+// Result Section
+// ===================================================
+.result-section {
+  animation: fadeIn $transition-slow ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ===================================================
+// Stock Info
+// ===================================================
+.stock-info {
+  @include flex-between;
+  align-items: flex-end;
+  padding: $spacing-24 0;
+  border-bottom: 1px solid $border;
+  margin-bottom: $spacing-28;
+}
+
+.stock-code {
+  font-family: $font-mono;
+  font-size: $font-size-13;
+  color: $accent;
+  letter-spacing: 0.12em;
+  margin-bottom: $spacing-4;
+}
+
+.stock-name {
+  font-size: $font-size-26;
+  font-weight: 500;
+  color: $text-primary;
+}
+
+.stock-price {
+  font-family: $font-mono;
+  font-size: $font-size-28;
+  font-weight: 700;
+  text-align: right;
+}
+
+.stock-change {
+  font-family: $font-mono;
+  font-size: $font-size-13;
+  text-align: right;
+  margin-top: $spacing-4;
+}
+
+// ===================================================
+// Prediction Cards
+// ===================================================
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: $spacing-16;
+  margin-bottom: $spacing-32;
+}
+
+.prediction-card {
+  @include card-base;
+  padding: $spacing-22 $spacing-20;
+}
+
+.card-label {
+  @include mono-label;
+  margin-bottom: $spacing-14;
+}
+
+.card-rate {
+  font-family: $font-mono;
+  font-size: $font-size-30;
+  font-weight: 700;
+  margin-bottom: $spacing-10;
+  letter-spacing: -0.01em;
+
+  &.rate-up { color: $up; }
+  &.rate-down { color: $down; }
+}
+
+.card-prob-row {
+  @include flex-between;
+  margin-bottom: $spacing-16;
+}
+
+.prob-label {
+  font-size: $font-size-12;
+  color: $text-muted;
+}
+
+.prob-value {
+  @include mono-value;
+  font-size: $font-size-16;
+}
+
+.card-divider {
+  height: 1px;
+  background: $border;
+  margin-bottom: $spacing-14;
+}
+
+.card-metrics {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: $spacing-12;
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-4 / 2;
+}
+
+.metric-label {
+  font-family: $font-mono;
+  font-size: $font-size-10;
+  color: $text-muted;
+  letter-spacing: 0.1em;
+}
+
+.metric-value {
+  font-family: $font-mono;
+  font-size: $font-size-13;
+  color: $text-secondary;
+}
+
+// ===================================================
+// Color Utilities
+// ===================================================
+.text-up { color: $up; }
+.text-down { color: $down; }
+.text-yellow { color: $yellow; }
+
+// ===================================================
+// Direction Accuracy Bar
+// ===================================================
+.r2-bar-bg {
+  height: 3px;
+  background: $border;
+  border-radius: $radius-sm;
+  overflow: visible;
+  margin-bottom: $spacing-4;
+  position: relative;
+}
+
+.dir-bar-fill {
+  height: 100%;
+  border-radius: $radius-sm;
+  transition: width 0.8s ease;
+}
+
+.bar-markers {
+  position: relative;
+  height: 14px;
+}
+
+.bar-marker-50 {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: $font-mono;
+  font-size: $font-size-9;
+  color: $text-muted;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1px;
+    height: 4px;
+    background: $text-muted;
+  }
+}
+
+.dir-acc-badge {
+  display: inline-block;
+  margin-left: $spacing-6;
+  font-size: $font-size-9;
+  padding: 1px 5px;
+  border-radius: $radius-sm;
+  background: rgba(255, 255, 255, 0.08);
+  vertical-align: middle;
+  letter-spacing: 0.05em;
+}
+
+// ===================================================
+// Disclaimer
+// ===================================================
+.disclaimer {
+  font-size: $font-size-11;
+  color: $text-muted;
+  text-align: center;
+  line-height: 1.8;
+}
+
+// ===================================================
+// Responsive
+// ===================================================
+@include responsive(sm) {
+  .cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stock-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $spacing-12;
+  }
+
+  .stock-price,
+  .stock-change {
+    text-align: left;
+  }
+}

@@ -1,5 +1,7 @@
 from app.api.v1.predict import router as predict_router
-from app.api.v1.recommend import router as recommend_router
+
+# from app.api.v1.recommend import router as recommend_router
+from app.api.v1.ranking import router as ranking_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,7 +12,8 @@ app = FastAPI(
 )
 
 app.include_router(predict_router, prefix="/api/v1", tags=["predict"])
-app.include_router(recommend_router, prefix="/api/v1", tags=["recommend"])
+# app.include_router(recommend_router, prefix="/api/v1", tags=["recommend"])
+app.include_router(ranking_router, prefix="/api/v1/ranking")
 
 app.add_middleware(
     CORSMiddleware,

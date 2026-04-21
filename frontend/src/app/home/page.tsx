@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 // ===================================================
 // 型定義
@@ -190,6 +191,18 @@ export default function Home() {
           <div className="header-sub">ML-Powered Japanese Equity Forecast</div>
         </div>
       </header>
+
+      {/* ナビゲーション */}
+      <nav className="nav-section">
+        <div className="nav-inner">
+          <Link href="/" className="nav-link nav-link-active">
+            検索
+          </Link>
+          <Link href="/ranking" className="nav-link">
+            🏆 ランキング
+          </Link>
+        </div>
+      </nav>
 
       {/* 検索セクション */}
       <section className="search-section">

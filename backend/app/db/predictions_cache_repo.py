@@ -13,7 +13,8 @@ class PredictionsCacheRepo(Database):
     def _create_table(self):
         """PredictionsCache テーブルが存在しない場合は作成する"""
         with self.engine.begin() as conn:
-            conn.execute(text("""
+            conn.execute(
+                text("""
                 CREATE TABLE IF NOT EXISTS PredictionsCache (
                     Code            TEXT NOT NULL,
                     PredDate        TEXT NOT NULL,
@@ -37,7 +38,51 @@ class PredictionsCacheRepo(Database):
                     DirAcc10d       REAL,
                     PRIMARY KEY (Code, PredDate)
                 )
-            """))
+            """)
+            )
+
+    def get_ranking(
+        self, ranking_type: str, period: str, sector_code: str = None, limit: int = 10
+    ):
+        """
+        最新日の予測データからランキングを取得する。
+        """
+        # カラム名のマッピング
+        rate_col = f"Rate{period}"  # 例: Rate5d
+        prob_col = f"UpProb{period}"  # 例: UpProb5d
+        conf_col = f"R2_{period}"  # 例: R2_5d
+
+        # ソート条件の決定
+        order_by_map = {
+            "expected": f"({rate_col} * {prob_col}) DESC",
+            "return": f"{rate_col} DESC",
+            "probability": f"{prob_col} DESC",
+            "confidence": f"{conf_col} DESC",
+        }
+        order_by = order_by_map.get(ranking_type, f"{rate_col} DESC")
+
+        # セクターフィルターのWHERE句（EquitiesMaster等とJOINが必要な場合は適宜修正）
+        # ※現在はPredictionsCache単体で取れる範囲を想定
+        sector_filter = ""
+        if sector_code:
+            # EquitiesMasterテーブルにSector17Codeがあると仮定してJOINする場合の例
+            join_clause = "JOIN EquitiesMaster m ON p.Code = m.Code"
+            sector_filter = f"AND m.Sector17Code = '{sector_code}'"
+        else:
+            join_clause = ""
+
+        query = f"""
+            SELECT p.*, ({rate_col} * {prob_col}) as ExpectedValue
+            FROM {self.table_name} p
+            {join_clause}
+            WHERE p.PredDate = (SELECT MAX(PredDate) FROM {self.table_name})
+            {sector_filter}
+            ORDER BY {order_by}
+            LIMIT {limit}
+        """
+
+        df = pd.read_sql(query, self.engine)
+        return df.to_dict(orient="records")
 
     def save(self, result: dict):
         """
@@ -48,7 +93,8 @@ class PredictionsCacheRepo(Database):
         metrics = result["metrics"]
 
         with self.engine.begin() as conn:
-            conn.execute(text("""
+            conn.execute(
+                text("""
                 INSERT OR REPLACE INTO PredictionsCache (
                     Code, PredDate,
                     CompanyName, CurrentPrice, PriceChangeRate,
@@ -62,28 +108,30 @@ class PredictionsCacheRepo(Database):
                     :rate_5d, :up_prob_5d, :mae_5d, :r2_5d, :dir_acc_5d,
                     :rate_10d, :up_prob_10d, :mae_10d, :r2_10d, :dir_acc_10d
                 )
-            """), {
-                "code":             result["code"],
-                "pred_date":        result["pred_date"],
-                "company_name":     result["company_name"],
-                "current_price":    result["current_price"],
-                "price_change_rate": result["price_change_rate"],
-                "rate_1d":     predictions["target_1d"]["rate"],
-                "up_prob_1d":  predictions["target_1d"]["up_prob"],
-                "mae_1d":      metrics["target_1d"]["mae"],
-                "r2_1d":       metrics["target_1d"]["r2"],
-                "dir_acc_1d":  metrics["target_1d"]["direction_accuracy"],
-                "rate_5d":     predictions["target_5d"]["rate"],
-                "up_prob_5d":  predictions["target_5d"]["up_prob"],
-                "mae_5d":      metrics["target_5d"]["mae"],
-                "r2_5d":       metrics["target_5d"]["r2"],
-                "dir_acc_5d":  metrics["target_5d"]["direction_accuracy"],
-                "rate_10d":    predictions["target_10d"]["rate"],
-                "up_prob_10d": predictions["target_10d"]["up_prob"],
-                "mae_10d":     metrics["target_10d"]["mae"],
-                "r2_10d":      metrics["target_10d"]["r2"],
-                "dir_acc_10d": metrics["target_10d"]["direction_accuracy"],
-            })
+            """),
+                {
+                    "code": result["code"],
+                    "pred_date": result["pred_date"],
+                    "company_name": result["company_name"],
+                    "current_price": result["current_price"],
+                    "price_change_rate": result["price_change_rate"],
+                    "rate_1d": predictions["target_1d"]["rate"],
+                    "up_prob_1d": predictions["target_1d"]["up_prob"],
+                    "mae_1d": metrics["target_1d"]["mae"],
+                    "r2_1d": metrics["target_1d"]["r2"],
+                    "dir_acc_1d": metrics["target_1d"]["direction_accuracy"],
+                    "rate_5d": predictions["target_5d"]["rate"],
+                    "up_prob_5d": predictions["target_5d"]["up_prob"],
+                    "mae_5d": metrics["target_5d"]["mae"],
+                    "r2_5d": metrics["target_5d"]["r2"],
+                    "dir_acc_5d": metrics["target_5d"]["direction_accuracy"],
+                    "rate_10d": predictions["target_10d"]["rate"],
+                    "up_prob_10d": predictions["target_10d"]["up_prob"],
+                    "mae_10d": metrics["target_10d"]["mae"],
+                    "r2_10d": metrics["target_10d"]["r2"],
+                    "dir_acc_10d": metrics["target_10d"]["direction_accuracy"],
+                },
+            )
 
     def get_latest(self, code: str) -> dict | None:
         """
@@ -105,19 +153,31 @@ class PredictionsCacheRepo(Database):
 
         row = df.iloc[0]
         return {
-            "code":             row["Code"],
-            "company_name":     row["CompanyName"],
-            "current_price":    row["CurrentPrice"],
+            "code": row["Code"],
+            "company_name": row["CompanyName"],
+            "current_price": row["CurrentPrice"],
             "price_change_rate": row["PriceChangeRate"],
             "predictions": {
-                "target_1d":  {"rate": row["Rate1d"],  "up_prob": row["UpProb1d"]},
-                "target_5d":  {"rate": row["Rate5d"],  "up_prob": row["UpProb5d"]},
+                "target_1d": {"rate": row["Rate1d"], "up_prob": row["UpProb1d"]},
+                "target_5d": {"rate": row["Rate5d"], "up_prob": row["UpProb5d"]},
                 "target_10d": {"rate": row["Rate10d"], "up_prob": row["UpProb10d"]},
             },
             "metrics": {
-                "target_1d":  {"mae": row["Mae1d"],  "r2": row["R2_1d"],  "direction_accuracy": row["DirAcc1d"]},
-                "target_5d":  {"mae": row["Mae5d"],  "r2": row["R2_5d"],  "direction_accuracy": row["DirAcc5d"]},
-                "target_10d": {"mae": row["Mae10d"], "r2": row["R2_10d"], "direction_accuracy": row["DirAcc10d"]},
+                "target_1d": {
+                    "mae": row["Mae1d"],
+                    "r2": row["R2_1d"],
+                    "direction_accuracy": row["DirAcc1d"],
+                },
+                "target_5d": {
+                    "mae": row["Mae5d"],
+                    "r2": row["R2_5d"],
+                    "direction_accuracy": row["DirAcc5d"],
+                },
+                "target_10d": {
+                    "mae": row["Mae10d"],
+                    "r2": row["R2_10d"],
+                    "direction_accuracy": row["DirAcc10d"],
+                },
             },
         }
 

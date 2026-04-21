@@ -31,8 +31,8 @@ def run_sector_sync(target_s17, limit=20):
 
             print(f"✅ 完了 (株価:{q_count:3d}件, 財務:{f_count:2d}件)")
 
-            print("⏳ API制限回避のため5秒待機中...")
-            time.sleep(5)
+            print("⏳ API制限回避のため2秒待機中...")
+            time.sleep(2)
         except Exception as e:
             if "429" in str(e):
                 print(f"⚠️ 制限中... 60秒待機してリトライします({retry_count + 1}/3)")

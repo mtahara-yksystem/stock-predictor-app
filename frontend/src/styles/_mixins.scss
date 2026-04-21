@@ -1,0 +1,77 @@
+@use 'variables' as *;
+
+// ===================================================
+// レスポンシブ対応
+// ===================================================
+@mixin responsive($breakpoint) {
+  @if $breakpoint == sm {
+    @media (max-width: $breakpoint-sm) { @content; }
+  } @else if $breakpoint == md {
+    @media (max-width: $breakpoint-md) { @content; }
+  } @else if $breakpoint == lg {
+    @media (max-width: $breakpoint-lg) { @content; }
+  }
+}
+
+// ===================================================
+// フレックスボックス
+// ===================================================
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+// ===================================================
+// ボタン基本スタイル
+// ===================================================
+@mixin button-base {
+  border: none;
+  border-radius: $radius-md;
+  font-family: $font-mono;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all $transition-normal;
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+
+// ===================================================
+// カード基本スタイル
+// ===================================================
+@mixin card-base {
+  background: $bg-card;
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  transition: border-color $transition-normal;
+
+  &:hover {
+    border-color: $border-bright;
+  }
+}
+
+// ===================================================
+// テキストスタイル
+// ===================================================
+@mixin mono-label {
+  font-family: $font-mono;
+  font-size: $font-size-10;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: $text-secondary;
+}
+
+@mixin mono-value {
+  font-family: $font-mono;
+  font-weight: 700;
+  color: $text-primary;
+}

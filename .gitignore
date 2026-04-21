@@ -3,9 +3,15 @@ backend/**/__pycache__/**
 backend/data/*
 .DS_Store
 .env
-
 *.db
 *.sqlite3
+
+# 機械学習モデル
+backend/models/**/*.joblib
+backend/models/**/*.json
+
+# 学習用データ
+backend/data/sector_*
 
 frontend/.next/
 frontend/node_modules/
