@@ -3,6 +3,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { StatValue } from "@/components/common/StatValue";
+import { getDirAccMeta } from "@/lib/utils";
 import "@/styles/_ranking.scss"
 
 // ===================================================
@@ -241,8 +243,7 @@ export default function RankingPage() {
               </thead>
               <tbody>
                 {data.stocks.map((stock) => {
-                  const dirAcc = getDirAccLabel(stock.direction_accuracy);
-                  const isUp = stock.predicted_return >= 0;
+                  const dirMeta = getDirAccMeta(stock.direction_accuracy);
 
                   return (
                     <tr key={stock.code} className="table-row">
@@ -273,38 +274,19 @@ export default function RankingPage() {
                         </span>
                       </td>
 
-                      {/* 予測騰落率 */}
+                      {/* 騰落率 */}
                       <td className="td-return">
-                        <span className={isUp ? "text-up" : "text-down"}>
-                          {formatRate(stock.predicted_return / 100)}
-                        </span>
+                        <StatValue value={stock.predicted_return} type="rate" />
                       </td>
-
                       {/* 上昇確率 */}
                       <td className="td-prob">
-                        <span
-                          className={
-                            stock.up_probability >= 0.6
-                              ? "text-up"
-                              : stock.up_probability >= 0.5
-                              ? "text-yellow"
-                              : "text-down"
-                          }
-                        >
-                          {formatProb(stock.up_probability / 100)}
-                        </span>
+                        <StatValue value={stock.up_probability} type="prob" />
                       </td>
-
                       {/* 方向正解率 */}
                       <td className="td-dir">
-                        <span style={{ color: dirAcc.color }}>
-                          {formatProb(stock.direction_accuracy / 100)}
-                        </span>
-                        <span
-                          className="dir-badge-inline"
-                          style={{ backgroundColor: dirAcc.color }}
-                        >
-                          {dirAcc.label}
+                        <span style={{ color: dirMeta.color }}>
+                          {formatProb(stock.direction_accuracy)}
+                          <span className="dir-badge-inline">{dirMeta.label}</span>
                         </span>
                       </td>
 
