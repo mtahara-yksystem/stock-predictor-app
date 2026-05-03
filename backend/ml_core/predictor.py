@@ -5,8 +5,6 @@ import joblib
 import numpy as np
 import pandas as pd
 from app.db.equities_master_repo import EquitiesMasterRepo
-
-# __init__ に MacroIndicatorsRepo を追加
 from app.db.macro_indicators_repo import MacroIndicatorsRepo
 from ml_core.feature_engineer import FeatureEngineer
 
@@ -53,7 +51,6 @@ class Predictor:
         """指定銘柄の直近データを株価＋財務込みで取得する"""
 
         # datetime.now() ではなく DB の最新日を基準にする
-        # （無料版J-Quantsは直近12週のデータがないため）
         latest_date_df = pd.read_sql(
             "SELECT MAX(Date) as latest FROM DailyQuotes WHERE Code = ?",
             self.repo.engine,
@@ -103,6 +100,7 @@ class Predictor:
             direction="backward",
         )
 
+        # マクロ指標を結合
         macro_df = self.macro_repo.get_all_pivoted()
         if not macro_df.empty:
             macro_df = macro_df.reset_index().rename(columns={"index": "Date"})
@@ -114,7 +112,7 @@ class Predictor:
                 direction="backward",
             )
             # 変化率を追加
-            macro_cols = ["usdjpy", "sp500", "us10y"]
+            macro_cols = ["usdjpy", "sp500", "crude_oil", "iron_ore", "us10y"]
             for col in macro_cols:
                 if col in merged_df.columns:
                     merged_df[f"{col}_chg"] = merged_df[col].pct_change(
@@ -127,50 +125,103 @@ class Predictor:
         """
         FeatureEngineerで特徴量を生成し、最新の1行だけを返す。
         推論に使うのは最新日のデータのみ。
-        """
-        # FeatureEngineer はターゲット列も生成するが、推論時は不要なので無視する
-        # target_*d は未来データなので NaN になり dropna で除外されてしまう
-        # → essential_cols からターゲットを外した推論用モードが必要なため
-        #   ここでは直接特徴量だけ作る
 
+        注意: 推論時は1銘柄のみなので、groupbyは不要
+        """
         df = df.copy()
         df["Code"] = df["Code"].astype(str)
+        df = df.sort_values("Date").copy()  # Codeでソート不要（1銘柄のみ）
 
-        # FeatureEngineer の特徴量生成部分だけ呼ぶ（ターゲット生成は不要）
-        # 内部実装と同じ処理を再現する
-        df = df.sort_values(["Code", "Date"]).copy()
+        # ===================================================
+        # 時間特徴量
+        # ===================================================
+        df["Date"] = pd.to_datetime(df["Date"])
+        df["day_of_week"] = df["Date"].dt.dayofweek
+        df["month"] = df["Date"].dt.month
+        df["is_month_end"] = df["Date"].dt.is_month_end.astype(int)
 
-        # テクニカル
-        df["sma5"] = df.groupby("Code")["AdjC"].transform(
-            lambda x: x.rolling(window=5).mean()
-        )
-        df["sma25"] = df.groupby("Code")["AdjC"].transform(
-            lambda x: x.rolling(window=25).mean()
-        )
+        # ===================================================
+        # テクニカル特徴量（1銘柄なのでgroupby不要）
+        # ===================================================
+
+        # 移動平均
+        df["sma5"] = df["AdjC"].rolling(window=5).mean()
+        df["sma25"] = df["AdjC"].rolling(window=25).mean()
         df["sma_dist"] = (df["AdjC"] - df["sma5"]) / df["sma5"]
 
+        # 過去リターン
         for p in [1, 5, 10, 25]:
-            df[f"return_{p}d"] = df.groupby("Code")["AdjC"].transform(
-                lambda x: x.pct_change(periods=p, fill_method=None)
-            )
+            df[f"return_{p}d"] = df["AdjC"].pct_change(periods=p, fill_method=None)
 
-        df["volatility_20d"] = df.groupby("Code")["AdjC"].transform(
-            lambda x: x.pct_change(fill_method=None).rolling(window=20).std()
+        # ボラティリティ
+        df["volatility_20d"] = (
+            df["AdjC"].pct_change(fill_method=None).rolling(window=20).std()
         )
-        df["rsi14"] = df.groupby("Code")["AdjC"].transform(self.engineer._calc_rsi)
-        df["macd"] = df.groupby("Code")["AdjC"].transform(self.engineer._calc_macd)
-        df["macd_signal"] = df.groupby("Code")["AdjC"].transform(
-            self.engineer._calc_macd_signal
-        )
+
+        # RSI
+        df["rsi14"] = self.engineer._calc_rsi(df["AdjC"])
+
+        # MACD
+        df["macd"] = self.engineer._calc_macd(df["AdjC"])
+        df["macd_signal"] = self.engineer._calc_macd_signal(df["AdjC"])
         df["macd_hist"] = df["macd"] - df["macd_signal"]
-        df["bb_percent"] = df.groupby("Code")["AdjC"].transform(
-            self.engineer._calc_bb_percent
-        )
-        df["volume_ratio"] = df.groupby("Code")["AdjVo"].transform(
-            lambda x: x / x.rolling(window=20).mean()
-        )
 
-        # 財務
+        # ボリンジャーバンド
+        df["bb_percent"] = self.engineer._calc_bb_percent(df["AdjC"])
+
+        # 出来高比率
+        df["volume_ratio"] = df["AdjVo"] / df["AdjVo"].rolling(window=20).mean()
+
+        # ===================================================
+        # 追加テクニカル指標（1銘柄なので直接計算）
+        # ===================================================
+
+        # ストキャスティクス %K
+        k_window = 14
+        lowest_low = df["L"].rolling(window=k_window).min()
+        highest_high = df["H"].rolling(window=k_window).max()
+        denominator = (highest_high - lowest_low).replace(0, float("nan"))
+        df["stoch_k"] = 100 * (df["AdjC"] - lowest_low) / denominator
+
+        # ATR
+        atr_window = 14
+        hl = df["H"] - df["L"]
+        hc = np.abs(df["H"] - df["AdjC"].shift())
+        lc = np.abs(df["L"] - df["AdjC"].shift())
+        tr = pd.concat([hl, hc, lc], axis=1).max(axis=1)
+        df["atr_14"] = tr.rolling(window=atr_window).mean()
+
+        # ===================================================
+        # ラグ特徴量
+        # ===================================================
+
+        # 株価のラグ
+        for lag in [1, 3, 5]:
+            df[f"close_lag_{lag}"] = df["AdjC"].shift(lag)
+
+        # リターンのラグ
+        for lag in [1, 3, 5]:
+            df[f"return_lag_{lag}"] = df["AdjC"].pct_change(fill_method=None).shift(lag)
+
+        # RSIのラグ
+        df["rsi_lag_1"] = df["rsi14"].shift(1)
+
+        # ===================================================
+        # ローリング統計量
+        # ===================================================
+
+        # リターンの統計量
+        returns = df["AdjC"].pct_change(fill_method=None)
+        df["return_mean_5d"] = returns.rolling(window=5).mean()
+        df["return_std_5d"] = returns.rolling(window=5).std()
+
+        # 出来高の標準偏差
+        df["volume_std_10d"] = df["AdjVo"].rolling(window=10).std()
+
+        # ===================================================
+        # 財務特徴量
+        # ===================================================
+
         financial_raw_cols = ["EPS", "BPS", "EqAR", "Sales", "OP", "NP", "Eq"]
         for col in financial_raw_cols:
             if col in df.columns:
@@ -181,7 +232,33 @@ class Predictor:
         df["op_margin"] = np.where(df["Sales"] > 0, df["OP"] / df["Sales"], np.nan)
         df["roe"] = np.where(df["Eq"] > 0, df["NP"] / df["Eq"], np.nan)
 
-        # inf を NaN に変換
+        # ===================================================
+        # 財務指標の変化率
+        # ===================================================
+
+        financial_metrics = ["per", "roe", "op_margin"]
+
+        for metric in financial_metrics:
+            if metric in df.columns:
+                # 前四半期比（約60営業日）
+                df[f"{metric}_qoq"] = df[metric].pct_change(
+                    periods=60, fill_method=None
+                )
+                # 前年同期比（約250営業日）
+                df[f"{metric}_yoy"] = df[metric].pct_change(
+                    periods=250, fill_method=None
+                )
+
+        # 売上高成長率
+        if "Sales" in df.columns:
+            df["sales_growth_yoy"] = df["Sales"].pct_change(
+                periods=250, fill_method=None
+            )
+
+        # ===================================================
+        # クリーニング
+        # ===================================================
+
         df = df.replace([np.inf, -np.inf], np.nan)
 
         # 最新行だけ取得
@@ -252,6 +329,15 @@ class Predictor:
             feature_names = save_data["feature_names"]
 
             # モデルが期待する特徴量だけを抽出・順序を揃える
+            # 欠損している特徴量は0で埋める（推論時のみ）
+            missing_features = [f for f in feature_names if f not in latest.columns]
+            if missing_features:
+                print(
+                    f"⚠️ 警告: 以下の特徴量が欠損しています（0で埋めます）: {missing_features}"
+                )
+                for feat in missing_features:
+                    latest[feat] = 0.0
+
             X = latest[feature_names].values
             X_scaled = scaler.transform(X)
 
@@ -269,7 +355,7 @@ class Predictor:
             "company_name": company_name,
             "current_price": current_price,
             "price_change_rate": round(price_change_rate, 6),
-            "pred_date": datetime.now().strftime("%Y-%m-%d"),  # ← 追加
+            "pred_date": datetime.now().strftime("%Y-%m-%d"),
             "predictions": predictions,
             "metrics": metrics,
         }

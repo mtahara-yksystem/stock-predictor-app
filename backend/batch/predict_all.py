@@ -6,6 +6,7 @@ batch/predict_all.py
 """
 
 import time
+import traceback
 from pathlib import Path
 
 from app.db.equities_master_repo import EquitiesMasterRepo
@@ -90,6 +91,8 @@ def run_predict_all():
             except Exception as e:
                 total_error += 1
                 print(f"❌ エラー: {e}")
+                print("エラー詳細\n" + traceback.format_exc())
+                break
 
             # 連続実行による負荷を避けるため少し待機
             time.sleep(0.5)
