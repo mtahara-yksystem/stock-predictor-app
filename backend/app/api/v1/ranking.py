@@ -31,11 +31,11 @@ async def get_ranking(
                 "rank": idx + 1,
                 "code": row["Code"],
                 "company_name": row["CompanyName"],
-                "expected_value": round(row.get("ExpectedValue", 0), 2),
-                "predicted_return": round(row[f"Rate{period}"], 2),
-                "up_probability": round(row[f"UpProb{period}"], 2),
-                "direction_accuracy": round(row[f"DirAcc{period}"], 2),
-                "r2": round(row[f"R2_{period}"], 2),
+                "expected_value": row.get("ExpectedValue", 0),
+                "predicted_return": row[f"Rate{period}"],
+                "up_probability": row[f"UpProb{period}"],
+                "direction_accuracy": row[f"DirAcc{period}"],
+                "r2": row[f"R2_{period}"],
             }
             for idx, row in enumerate(rows)
         ],

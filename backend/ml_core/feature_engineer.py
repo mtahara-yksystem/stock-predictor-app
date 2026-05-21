@@ -166,14 +166,31 @@ class FeatureEngineer:
         # ===================================================
         # 追加テクニカル指標
         # ===================================================
+        low_min = df.groupby("Code")["L"].transform(
+            lambda x: x.rolling(window=14).min()
+        )
+        high_max = df.groupby("Code")["H"].transform(
+            lambda x: x.rolling(window=14).max()
+        )
+        denominator = (high_max - low_min).replace(0, float("nan"))
+        df["stoch_k"] = 100 * (df["AdjC"] - low_min) / denominator
 
-        # ストキャスティクス（グループごとに計算）
-        df["stoch_k"] = df.groupby("Code", group_keys=False).apply(
-            self._calc_stochastic
+        # --- ATR の修正（ここを以下のブロックに差し替えてください） ---
+        # 1. 必要な中間値を計算
+        df["_hl"] = df["H"] - df["L"]
+        df["_hc"] = (df["H"] - df.groupby("Code")["AdjC"].shift()).abs()
+        df["_lc"] = (df["L"] - df.groupby("Code")["AdjC"].shift()).abs()
+
+        # 2. True Range (TR) を算出
+        df["_tr"] = df[["_hl", "_hc", "_lc"]].max(axis=1)
+
+        # 3. ATRを算出（銘柄ごとに移動平均）
+        df["atr_14"] = df.groupby("Code")["_tr"].transform(
+            lambda x: x.rolling(window=14).mean()
         )
 
-        # ATR
-        df["atr_14"] = df.groupby("Code", group_keys=False).apply(self._calc_atr)
+        # 4. 中間計算用の列を削除
+        df = df.drop(columns=["_hl", "_hc", "_lc", "_tr"])
 
         # ===================================================
         # ラグ特徴量

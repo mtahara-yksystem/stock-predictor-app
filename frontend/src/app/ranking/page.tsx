@@ -114,6 +114,13 @@ export default function RankingPage() {
     { id: "confidence" as const, label: "信頼度順", icon: "✅" },
   ];
 
+  const RANKING_DESCRIPTIONS: Record<RankingType, string> = {
+    expected: "💡 期待値順：予測リターン × 上がる確率。総合的に『手堅く大きく狙える』銘柄です。",
+    return: "💡 騰落率順：AIが予測した純粋な上昇率の大きさ。一撃の狙いやすさ重視です。",
+    probability: "💡 上昇確率順：わずかでもプラスになる確率の高さ。勝率重視です。",
+    confidence: "💡 信頼度順：過去の検証（バックテスト）で、AIの予測がよく当たっていた順です（方向正解率重視）。",
+  };
+
   const periodButtons = [
     { id: "1d" as const, label: "翌日" },
     { id: "5d" as const, label: "5日後" },
@@ -167,6 +174,10 @@ export default function RankingPage() {
                 </button>
               ))}
             </div>
+          </div>
+          {/* ランキング種別説明 */}
+          <div>
+            {RANKING_DESCRIPTIONS[rankingType]}
           </div>
 
           {/* 期間選択 */}
@@ -276,11 +287,11 @@ export default function RankingPage() {
 
                       {/* 騰落率 */}
                       <td className="td-return">
-                        <StatValue value={stock.predicted_return} type="rate" />
+                        {formatRate(stock.predicted_return)}
                       </td>
                       {/* 上昇確率 */}
                       <td className="td-prob">
-                        <StatValue value={stock.up_probability} type="prob" />
+                        {formatProb(stock.up_probability)}
                       </td>
                       {/* 方向正解率 */}
                       <td className="td-dir">
