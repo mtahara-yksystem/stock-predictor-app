@@ -1,9 +1,10 @@
 import requests
+from app.config import settings
 
 
 class JQuantsFetcher:
     def __init__(self):
-        self.api_key = "sDyJr0EaP2XtWsEq9_dTcl0HMpX_ZO7G_WsvLMNm3cU"
+        self.api_key = settings.api_key
         self.base_url = "https://api.jquants.com/v2"
         self.headers = {"x-api-key": self.api_key}
 
