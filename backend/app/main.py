@@ -1,7 +1,8 @@
-from app.api.v1.predict import router as predict_router
+# backend/app/main.py
 
-# from app.api.v1.recommend import router as recommend_router
+from app.api.v1.predict import router as predict_router
 from app.api.v1.ranking import router as ranking_router
+from app.api.v1.signal import router as signal_router  # ← 追加
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -12,8 +13,8 @@ app = FastAPI(
 )
 
 app.include_router(predict_router, prefix="/api/v1", tags=["predict"])
-# app.include_router(recommend_router, prefix="/api/v1", tags=["recommend"])
-app.include_router(ranking_router, prefix="/api/v1/ranking")
+app.include_router(ranking_router, prefix="/api/v1/ranking", tags=["ranking"])
+app.include_router(signal_router, prefix="/api/v1/signals", tags=["signal"])  # ← 追加
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,11 +26,4 @@ app.add_middleware(
 
 @app.get("/health")
 async def health_check():
-    """サーバーの死活確認用"""
     return {"status": "ok"}
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)

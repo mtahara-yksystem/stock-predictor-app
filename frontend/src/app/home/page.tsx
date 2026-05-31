@@ -138,6 +138,7 @@ export default function Home() {
         <div className="nav-inner">
           <Link href="/" className="nav-link nav-link-active">検索</Link>
           <Link href="/ranking" className="nav-link">🏆 ランキング</Link>
+          <Link href="/signals" className="nav-link">🟢 シグナル</Link>
         </div>
       </nav>
 

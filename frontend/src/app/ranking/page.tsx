@@ -150,6 +150,9 @@ export default function RankingPage() {
           <Link href="/ranking" className="nav-link nav-link-active">
             🏆 ランキング
           </Link>
+          <Link href="/signals" className="nav-link">
+            🟢 シグナル
+          </Link>
         </div>
       </nav>
 
