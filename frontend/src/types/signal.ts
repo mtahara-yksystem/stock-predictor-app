@@ -1,6 +1,6 @@
 // frontend/src/types/signal.ts
 
-export type SignalType = "BUY" | "HOLD";
+export type SignalType = "BUY" | "SELL" | "HOLD";
 export type StrengthType = "STRONG" | "WEAK" | "NONE" | "ALL";
 export type TargetType = "target_1d" | "target_5d" | "target_10d";
 

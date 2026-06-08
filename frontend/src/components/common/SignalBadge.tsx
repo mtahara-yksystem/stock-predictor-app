@@ -8,13 +8,23 @@ interface Props {
 }
 
 export const SignalBadge = ({ signal, strength }: Props) => {
-  if (signal !== "BUY") return null;
-
   const isStrong = strength === "STRONG";
 
-  return (
-    <span className={`signal-badge ${isStrong ? "signal-badge--strong" : "signal-badge--weak"}`}>
-      {isStrong ? "🟢 STRONG BUY" : "🔵 BUY"}
-    </span>
-  );
+  if (signal === "BUY") {
+    return (
+      <span className={`signal-badge ${isStrong ? "signal-badge--strong-buy" : "signal-badge--buy"}`}>
+        {isStrong ? "🟢 STRONG BUY" : "🔵 BUY"}
+      </span>
+    );
+  }
+
+  if (signal === "SELL") {
+    return (
+      <span className={`signal-badge ${isStrong ? "signal-badge--strong-sell" : "signal-badge--sell"}`}>
+        {isStrong ? "🔴 STRONG SELL" : "🟠 SELL"}
+      </span>
+    );
+  }
+
+  return null;
 };

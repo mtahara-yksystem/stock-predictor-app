@@ -42,6 +42,7 @@ def run_generate_signals(target: str = "target_5d"):
     print(f"📅 対象日: {today}  銘柄数: {len(df)}")
 
     buy_count = 0
+    sell_count = 0
     hold_count = 0
     error_count = 0
 
@@ -72,6 +73,14 @@ def run_generate_signals(target: str = "target_5d"):
                     f"  up_prob={up_prob:.1%}"
                     f"  pred_rate={pred_rate:.2%}"
                 )
+            elif result["signal"] == "SELL":  # ← 追加
+                sell_count += 1
+                strength = result["strength"]
+                print(
+                    f"  🔴 {row['Code']} SELL({strength})"
+                    f"  up_prob={up_prob:.1%}"
+                    f"  pred_rate={pred_rate:.2%}"
+                )
             else:
                 hold_count += 1
 
@@ -80,7 +89,9 @@ def run_generate_signals(target: str = "target_5d"):
             print(f"  ❌ {row['Code']} エラー: {e}")
             print(traceback.format_exc())
 
-    print(f"\n✨ 完了: BUY={buy_count}, HOLD={hold_count}, ERROR={error_count}")
+    print(
+        f"\n✨ 完了: BUY={buy_count}, SELL={sell_count}, HOLD={hold_count}, ERROR={error_count}"
+    )
 
 
 if __name__ == "__main__":

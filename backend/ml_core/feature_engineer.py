@@ -88,7 +88,7 @@ class FeatureEngineer:
     # ===================================================
 
     def create_features_and_targets(
-        self, df: pd.DataFrame, macro_df: pd.DataFrame = None
+        self, df: pd.DataFrame, macro_df: pd.DataFrame = None, sector_code: str = None
     ):
         """
         Args:
@@ -282,7 +282,6 @@ class FeatureEngineer:
 
         df = df.replace([np.inf, -np.inf], np.nan)
 
-        # 必須カラム（確実に存在するもののみ）
         essential_cols = [
             "sma5",
             "sma25",
@@ -299,6 +298,22 @@ class FeatureEngineer:
             "roe",
             "op_margin",
         ]
+
+        BANKING_SECTOR_CODE = 15
+        if sector_code == BANKING_SECTOR_CODE:
+            for col in ["op_margin"]:
+                essential_cols.remove(col)
+
+        # ↓ デバッグ: dropna前にNaN状況を確認
+        print("=== NaN診断 ===")
+        for col in essential_cols:
+            if col in df.columns:
+                nan_count = df[col].isna().sum()
+                print(
+                    f"  {col}: NaN={nan_count}/{len(df)} ({nan_count / len(df) * 100:.1f}%)"
+                )
+            else:
+                print(f"  {col}: カラム自体が存在しない")
 
         initial_len = len(df)
         df = df.dropna(subset=essential_cols)

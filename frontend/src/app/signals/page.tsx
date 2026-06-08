@@ -27,6 +27,7 @@ export default function SignalsPage() {
   const [data, setData]         = useState<SignalListResponse | null>(null);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
+  const [signalFilter, setSignalFilter] = useState<"BUY" | "SELL">("BUY");
 
   const fetchSignals = async () => {
     setLoading(true);
@@ -35,7 +36,7 @@ export default function SignalsPage() {
       const target = TARGET_MAP[period];
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/signals/`
-        + `?signal=BUY&target=${target}&strength=${strength}&limit=30`
+        + `?signal=${signalFilter}&target=${target}&strength=${strength}&limit=30`
       );
       if (!res.ok) {
         const err = await res.json();
@@ -123,6 +124,25 @@ export default function SignalsPage() {
                   {btn.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* シグナル種別 */}
+          <div className="control-group">
+            <label className="control-label">シグナル種別</label>
+            <div className="period-buttons">
+              <button
+                className={`period-btn ${signalFilter === "BUY" ? "period-btn-active" : ""}`}
+                onClick={() => setSignalFilter("BUY")}
+              >
+                🟢 買いシグナル
+              </button>
+              <button
+                className={`period-btn ${signalFilter === "SELL" ? "period-btn-active" : ""}`}
+                onClick={() => setSignalFilter("SELL")}
+              >
+                🔴 売りシグナル
+              </button>
             </div>
           </div>
         </div>

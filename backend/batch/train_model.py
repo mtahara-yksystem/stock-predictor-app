@@ -31,7 +31,9 @@ def run_train(target_s17):
 
     # 4. 特徴量生成 & 学習
     engineer = FeatureEngineer()
-    X, y_all = engineer.create_features_and_targets(raw_df, macro_df=macro_df)
+    X, y_all = engineer.create_features_and_targets(
+        raw_df, macro_df=macro_df, sector_code=target_s17
+    )
 
     trainer = Trainer(target_s17, sector["S17NmEn"])
     trainer.train(X, y_all)
@@ -47,3 +49,4 @@ def run_all_train():
 
 if __name__ == "__main__":
     run_all_train()
+    # run_train(target_s17=15)

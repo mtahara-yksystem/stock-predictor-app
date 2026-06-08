@@ -17,7 +17,7 @@ signal_repo = SignalCacheRepo()
 
 @router.get("/", response_model=SignalListResponse)
 async def get_signals(
-    signal: Literal["BUY", "HOLD"] = "BUY",
+    signal: Literal["BUY", "SELL", "HOLD"] = "BUY",
     target: Literal["target_1d", "target_5d", "target_10d"] = "target_5d",
     strength: Literal["STRONG", "WEAK", "ALL"] = "ALL",
     limit: int = Query(20, le=50),
@@ -25,7 +25,7 @@ async def get_signals(
     """
     最新日のシグナル一覧を返す。
 
-    - **signal**: BUY or HOLD
+    - **signal**: BUY or SELL or HOLD
     - **target**: 予測期間
     - **strength**: STRONG / WEAK / ALL
     - **limit**: 最大返却件数

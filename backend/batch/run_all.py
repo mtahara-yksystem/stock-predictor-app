@@ -16,6 +16,7 @@ if __name__ == "__main__":
         ["python", "-m", "batch.sync_macro"],
         ["python", "-m", "batch.train_model"],
         ["python", "-m", "batch.predict_all"],
+        ["python", "-m", "batch.generate_signals"],
     ]
 
     for task in tasks:

@@ -3,31 +3,49 @@
 
 class SignalGenerator:
     """
-    バックテストで検証した閾値をもとにシグナルを生成する。
-
-    STRONG BUY : up_prob >= 0.65 かつ pred_rate >= 0.02
-    BUY        : up_prob >= 0.60 かつ pred_rate >= 0.00
-    HOLD       : 上記以外
+    STRONG BUY  : up_prob >= 0.65 かつ pred_rate >= 0.02
+    BUY         : up_prob >= 0.60 かつ pred_rate >= 0.00
+    STRONG SELL : up_prob <= 0.35 かつ pred_rate <= -0.02
+    SELL        : up_prob <= 0.40 かつ pred_rate <= 0.00
+    HOLD        : 上記以外
     """
 
-    # バックテスト検証済み閾値
     THRESHOLDS = {
-        "STRONG": {"up_prob": 0.65, "pred_rate": 0.02},
-        "WEAK": {"up_prob": 0.60, "pred_rate": 0.00},
+        "STRONG_BUY": {"up_prob_min": 0.65, "pred_rate_min": 0.02},
+        "BUY": {"up_prob_min": 0.60, "pred_rate_min": 0.00},
+        "STRONG_SELL": {"up_prob_max": 0.35, "pred_rate_max": -0.02},
+        "SELL": {"up_prob_max": 0.40, "pred_rate_max": 0.00},
     }
 
     def generate(self, up_prob: float, pred_rate: float) -> dict:
         """
         Returns:
-            {"signal": "BUY"|"HOLD", "strength": "STRONG"|"WEAK"|None}
+            {"signal": "BUY"|"SELL"|"HOLD", "strength": "STRONG"|"WEAK"|None}
         """
-        strong = self.THRESHOLDS["STRONG"]
-        weak = self.THRESHOLDS["WEAK"]
+        t = self.THRESHOLDS
 
-        if up_prob >= strong["up_prob"] and pred_rate >= strong["pred_rate"]:
+        if (
+            up_prob >= t["STRONG_BUY"]["up_prob_min"]
+            and pred_rate >= t["STRONG_BUY"]["pred_rate_min"]
+        ):
             return {"signal": "BUY", "strength": "STRONG"}
 
-        if up_prob >= weak["up_prob"] and pred_rate >= weak["pred_rate"]:
+        if (
+            up_prob >= t["BUY"]["up_prob_min"]
+            and pred_rate >= t["BUY"]["pred_rate_min"]
+        ):
             return {"signal": "BUY", "strength": "WEAK"}
+
+        if (
+            up_prob <= t["STRONG_SELL"]["up_prob_max"]
+            and pred_rate <= t["STRONG_SELL"]["pred_rate_max"]
+        ):
+            return {"signal": "SELL", "strength": "STRONG"}
+
+        if (
+            up_prob <= t["SELL"]["up_prob_max"]
+            and pred_rate <= t["SELL"]["pred_rate_max"]
+        ):
+            return {"signal": "SELL", "strength": "WEAK"}
 
         return {"signal": "HOLD", "strength": None}

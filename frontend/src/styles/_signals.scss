@@ -35,3 +35,27 @@
     border: 1px solid rgba(0, 212, 255, 0.25);
   }
 }
+
+.signal-badge--strong-buy {
+  background: rgba(0, 255, 136, 0.15);
+  color: $up;
+  border: 1px solid rgba(0, 255, 136, 0.3);
+}
+
+.signal-badge--buy {
+  background: rgba(0, 212, 255, 0.12);
+  color: $accent;
+  border: 1px solid rgba(0, 212, 255, 0.25);
+}
+
+.signal-badge--strong-sell {
+  background: rgba(255, 68, 102, 0.15);
+  color: $down;
+  border: 1px solid rgba(255, 68, 102, 0.3);
+}
+
+.signal-badge--sell {
+  background: rgba(240, 192, 64, 0.15);
+  color: $yellow;
+  border: 1px solid rgba(240, 192, 64, 0.3);
+}
