@@ -53,7 +53,7 @@ export default function SignalsPage() {
 
   useEffect(() => {
     fetchSignals();
-  }, [period, strength]);
+  }, [period, strength, signalFilter]);
 
   const periodButtons: { id: Period; label: string }[] = [
     { id: "1d",  label: "翌日"  },
