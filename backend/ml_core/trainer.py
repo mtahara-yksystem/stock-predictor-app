@@ -2,24 +2,35 @@ import json
 import os
 
 import joblib
+import numpy as np
 from ml_core.engine import build_and_train_model, evaluate_model
 
-# ターゲットごとのハイパーパラメータ設定
-# 短期は浅め（ノイズ耐性）、長期は深め（長期パターンを学習）
 HYPERPARAMS = {
-    "target_1d": {
-        "max_depth": 5,
-        "colsample_bytree": 0.6,
-    },
-    "target_5d": {
-        "max_depth": 6,
-        "colsample_bytree": 0.7,
-    },
-    "target_10d": {
-        "max_depth": 7,
-        "colsample_bytree": 0.8,
-    },
+    "target_1d": {"max_depth": 5, "colsample_bytree": 0.6},
+    "target_5d": {"max_depth": 6, "colsample_bytree": 0.7},
+    "target_10d": {"max_depth": 7, "colsample_bytree": 0.8},
 }
+
+# ノイズゾーンの閾値（この絶対値未満のサンプルは学習から除外）
+DEAD_ZONE_THRESHOLD = 0.005  # ±0.5%
+
+
+def _to_class_label(y_regression, threshold=DEAD_ZONE_THRESHOLD):
+    """
+    回帰ターゲット（騰落率）を分類ラベルに変換する。
+
+    - 上昇（> +threshold）  → 1
+    - 下落（< -threshold）  → 0
+    - ノイズゾーン内        → NaN（学習から除外）
+
+    Returns: pd.Series（NaNを含む）
+    """
+    import pandas as pd
+
+    labels = pd.Series(np.nan, index=y_regression.index)
+    labels[y_regression > threshold] = 1
+    labels[y_regression < -threshold] = 0
+    return labels
 
 
 class Trainer:
@@ -31,20 +42,12 @@ class Trainer:
         self.targets = ["target_1d", "target_5d", "target_10d"]
 
     def train(self, X, y_all):
-        """
-        X: 特徴量データ
-        y_all: target_1d, 5d, 10d が含まれるDataFrame
-        """
         print(f"DEBUG: 特徴量生成後の総行数: {len(X)}")
 
         if len(X) < 50:
-            print(
-                "⚠️ データが少なすぎます。DBの取得期間を延ばすか、銘柄を確認してください。"
-            )
+            print("⚠️ データが少なすぎます。")
             return
 
-        # --- データの分割 (Train/Test) ---
-        # 日付インデックスで分割（銘柄順にならないようにする）
         split_date = X.index.sort_values()[int(len(X) * 0.9)]
         X_train = X[X.index <= split_date]
         X_test = X[X.index > split_date]
@@ -60,40 +63,60 @@ class Trainer:
         hyperparams_summary = {}
 
         for target_col in self.targets:
-            print(f"🌲 {self.sector_name} [{target_col}] の学習を開始...")
+            print(f"\n🌲 {self.sector_name} [{target_col}] の学習を開始...")
 
-            y = y_all[target_col]
-            y_train = y[y.index <= split_date]
-            y_test = y[y.index > split_date]
+            # ① 回帰ターゲット → クラスラベルに変換
+            y_raw = y_all[target_col]
+            y_labeled = _to_class_label(y_raw)
 
-            # ターゲットごとのハイパーパラメータを取得
+            # ② ノイズゾーンのサンプルを除外
+            valid_mask_train = y_labeled[y_labeled.index <= split_date].notna()
+            valid_mask_test = y_labeled[y_labeled.index > split_date].notna()
+
+            X_tr = X_train[valid_mask_train]
+            y_tr = y_labeled[y_labeled.index <= split_date][valid_mask_train].astype(
+                int
+            )
+            X_te = X_test[valid_mask_test]
+            y_te = y_labeled[y_labeled.index > split_date][valid_mask_test].astype(int)
+
+            total = len(y_labeled)
+            kept = len(y_tr) + len(y_te)
+            removed = total - kept
+            print(
+                f"   ノイズ除外: {removed}件除外 ({removed / total * 100:.1f}%) → 残り{kept}件"
+            )
+            print(
+                f"   クラス比率(train): 上昇={y_tr.mean():.2f}, 下落={1 - y_tr.mean():.2f}"
+            )
+
+            if len(y_tr) < 30:
+                print("⚠️ 学習サンプルが不足しています。スキップします。")
+                continue
+
             params = HYPERPARAMS[target_col]
             print(
                 f"⚙️  max_depth={params['max_depth']}, colsample_bytree={params['colsample_bytree']}"
             )
 
-            # --- 学習 ---
             model, scaler = build_and_train_model(
-                X_train,
-                y_train,
-                X_test,
-                y_test,
+                X_tr,
+                y_tr,
+                X_te,
+                y_te,
                 max_depth=params["max_depth"],
                 colsample_bytree=params["colsample_bytree"],
             )
 
-            # --- 評価 ---
-            preds, mae, r2, dir_acc = evaluate_model(model, scaler, X_test, y_test)
-            print(
-                f"📊 {target_col} 評価結果 -> "
-                f"MAE: {mae:.4f}, R2: {r2:.4f}, 方向正解率: {dir_acc:.4f}"
-            )
+            _, mae, r2, dir_acc = evaluate_model(model, scaler, X_te, y_te)
+            print(f"📊 {target_col} 方向正解率: {dir_acc:.4f}  (log_loss: {mae:.4f})")
 
-            # --- 保存 ---
+            # ③ 保存（scalerはNoneだが構造は維持）
             save_data = {
                 "model": model,
-                "scaler": scaler,
+                "scaler": scaler,  # None
                 "feature_names": X.columns.tolist(),
+                "model_type": "classifier",  # 新規追加：推論側で判別するため
             }
             model_path = os.path.join(self.model_dir, f"model_{target_col}.joblib")
             joblib.dump(save_data, model_path)
@@ -105,13 +128,8 @@ class Trainer:
             }
             hyperparams_summary[target_col] = params
 
-        # --- metrics.json に評価結果とハイパーパラメータをまとめて保存 ---
-        # 開発規約: ハイパーパラメータはモデルとセットでJSONに記録
-        output = {
-            "metrics": metrics_summary,
-            "hyperparams": hyperparams_summary,
-        }
+        output = {"metrics": metrics_summary, "hyperparams": hyperparams_summary}
         with open(os.path.join(self.model_dir, "metrics.json"), "w") as f:
             json.dump(output, f, indent=4)
 
-        print(f"✨ 全ターゲットの学習が完了しました。保存先: {self.model_dir}")
+        print(f"\n✨ 全ターゲットの学習完了。保存先: {self.model_dir}")

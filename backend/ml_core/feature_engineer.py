@@ -243,6 +243,67 @@ class FeatureEngineer:
         df["roe"] = np.where(df["Eq"] > 0, df["NP"] / df["Eq"], np.nan)
 
         # ===================================================
+        # ① 決算サイクル特徴量（既存特徴量と独立した情報軸）
+        # ===================================================
+        if "DiscDate" in df.columns:
+            df["DiscDate"] = pd.to_datetime(df["DiscDate"])
+            df["days_since_disc"] = (df["Date"] - df["DiscDate"]).dt.days
+            # 決算後30日以内フラグ（市場の反応が残りやすい期間）
+            df["is_post_earnings_30d"] = (df["days_since_disc"] <= 30).astype(int)
+            # 決算後60日以内フラグ
+            df["is_post_earnings_60d"] = (df["days_since_disc"] <= 60).astype(int)
+        else:
+            df["days_since_disc"] = np.nan
+            df["is_post_earnings_30d"] = 0
+            df["is_post_earnings_60d"] = 0
+
+        # ===================================================
+        # ② 出来高プロファイル系
+        # ===================================================
+
+        # OBV（On Balance Volume）— 価格方向に出来高を累積
+        def _calc_obv(group):
+            direction = np.sign(group["AdjC"].diff())
+            obv = (direction * group["AdjVo"]).cumsum()
+            return obv
+
+        df["obv"] = df.groupby("Code", group_keys=False).apply(_calc_obv)
+
+        # OBVの変化率（OBV自体は累積値なので変化率で使う）
+        df["obv_chg_5d"] = df.groupby("Code")["obv"].transform(
+            lambda x: x.pct_change(periods=5, fill_method=None)
+        )
+
+        # VWAP乖離率 — 当日終値が出来高加重平均からどれだけ乖離しているか
+        # 20日ローリングVWAPとの乖離
+        df["_pv"] = df["AdjC"] * df["AdjVo"]
+        df["vwap_20d"] = df.groupby("Code")["_pv"].transform(
+            lambda x: x.rolling(20).sum()
+        ) / df.groupby("Code")["AdjVo"].transform(lambda x: x.rolling(20).sum())
+        df["vwap_dist"] = (df["AdjC"] - df["vwap_20d"]) / df["vwap_20d"]
+        df = df.drop(columns=["_pv", "vwap_20d"])
+
+        # ===================================================
+        # ③ 価格構造系
+        # ===================================================
+
+        # 直近20日の高値・安値レンジ内での現在位置（0=底, 1=天井）
+        rolling_high = df.groupby("Code")["H"].transform(lambda x: x.rolling(20).max())
+        rolling_low = df.groupby("Code")["L"].transform(lambda x: x.rolling(20).min())
+        denom = (rolling_high - rolling_low).replace(0, np.nan)
+        df["range_position_20d"] = (df["AdjC"] - rolling_low) / denom
+
+        # 直近52週（約250日）高値からの乖離率
+        high_52w = df.groupby("Code")["H"].transform(lambda x: x.rolling(250).max())
+        df["dist_from_52w_high"] = (df["AdjC"] - high_52w) / high_52w
+
+        # 高値更新フラグ（直近5日で新高値を付けたか）
+        df["is_new_high_5d"] = (
+            df["AdjC"]
+            >= df.groupby("Code")["H"].transform(lambda x: x.rolling(5).max().shift(1))
+        ).astype(int)
+
+        # ===================================================
         # 財務指標の変化率
         # ===================================================
 
@@ -294,9 +355,6 @@ class FeatureEngineer:
             "target_1d",
             "target_5d",
             "target_10d",
-            "per",
-            "roe",
-            "op_margin",
         ]
 
         BANKING_SECTOR_CODE = 15
@@ -316,12 +374,22 @@ class FeatureEngineer:
                 print(f"  {col}: カラム自体が存在しない")
 
         initial_len = len(df)
-        df = df.dropna(subset=essential_cols)
+
+        essential_feature_cols = [
+            c for c in essential_cols if not c.startswith("target_")
+        ]
+        df = df.dropna(subset=essential_feature_cols)
         print(f"DEBUG: Feature Engineering完了 (保持率: {len(df)}/{initial_len})")
 
         if df.empty:
             print("⚠️ 警告: dropna後にデータが0件になりました。")
             return pd.DataFrame(), pd.DataFrame()
+
+        # ===================================================
+        # ★ 銘柄コードをカテゴリ特徴量として追加
+        # XGBoostはカテゴリ型をネイティブに扱える
+        # ===================================================
+        df["code_cat"] = df["Code"].astype("category")
 
         # ===================================================
         # 5. 学習に使わないカラムを除外

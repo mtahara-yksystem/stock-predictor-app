@@ -47,10 +47,10 @@ class Predictor:
             data = json.load(f)
         return data["metrics"]
 
-    def _get_recent_data(self, code: str, days: int = 60):
+    def _get_recent_data(self, code: str, days: int = 120):
         """指定銘柄の直近データを株価＋財務込みで取得する"""
 
-        # datetime.now() ではなく DB の最新日を基準にする
+        # DBの最新日を基準に直近N日の株価を取得
         latest_date_df = pd.read_sql(
             "SELECT MAX(Date) as latest FROM DailyQuotes WHERE Code = ?",
             self.repo.engine,
@@ -62,64 +62,39 @@ class Predictor:
         latest_date = pd.to_datetime(latest_date_df.iloc[0]["latest"])
         since = (latest_date - timedelta(days=days)).strftime("%Y-%m-%d")
 
-        # 株価データ
-        quotes_query = """
-            SELECT q.* FROM DailyQuotes q
-            WHERE q.Code = ?
-            AND q.Date >= ?
-            ORDER BY q.Date ASC
-        """
-        quotes_df = pd.read_sql(quotes_query, self.repo.engine, params=(code, since))
-
-        print(f"{code}: {quotes_df} {since}")
+        quotes_df = pd.read_sql(
+            "SELECT * FROM DailyQuotes WHERE Code = ? AND Date >= ? ORDER BY Date ASC",
+            self.repo.engine,
+            params=(code, since),
+        )
         if quotes_df.empty:
             return None
 
-        # 財務データ
-        financials_query = """
-            SELECT Code, DiscDate, EPS, BPS, EqAR, Sales, OP, NP, Eq
-            FROM FinancialSummaries
-            WHERE Code = ?
-            ORDER BY DiscDate ASC
-        """
-        financials_df = pd.read_sql(financials_query, self.repo.engine, params=(code,))
-
+        # ★ 財務データは期間を絞らず全件取得（直近120日に開示がない銘柄に対応）
+        financials_df = pd.read_sql(
+            """SELECT Code, DiscDate, EPS, BPS, EqAR, Sales, OP, NP, Eq
+               FROM FinancialSummaries
+               WHERE Code = ?
+               ORDER BY DiscDate ASC""",
+            self.repo.engine,
+            params=(code,),
+        )
         if financials_df.empty:
             return None
 
-        # 日付型に統一
         quotes_df["Date"] = pd.to_datetime(quotes_df["Date"])
         financials_df["DiscDate"] = pd.to_datetime(financials_df["DiscDate"])
 
-        # merge_asof でルックアヘッドバイアスなく結合
+        # merge_asof で「その日時点で最新の財務データ」を結合
         merged_df = pd.merge_asof(
             quotes_df.sort_values("Date"),
-            financials_df.drop(columns=["Code"]),
+            financials_df.drop(columns=["Code"]).sort_values("DiscDate"),
             left_on="Date",
             right_on="DiscDate",
             direction="backward",
         )
 
-        # マクロ指標を結合
-        macro_df = self.macro_repo.get_all_pivoted()
-        if not macro_df.empty:
-            macro_df = macro_df.reset_index().rename(columns={"index": "Date"})
-            macro_df["Date"] = pd.to_datetime(macro_df["Date"])
-            merged_df = pd.merge_asof(
-                merged_df.sort_values("Date"),
-                macro_df.sort_values("Date"),
-                on="Date",
-                direction="backward",
-            )
-            # 変化率を追加
-            macro_cols = ["usdjpy", "sp500", "crude_oil", "iron_ore", "us10y"]
-            for col in macro_cols:
-                if col in merged_df.columns:
-                    merged_df[f"{col}_chg"] = merged_df[col].pct_change(
-                        fill_method=None
-                    )
-
-        return merged_df
+        return merged_df  # マクロ結合はcreate_features_and_targetsに任せる
 
     def _build_latest_features(self, df: pd.DataFrame):
         """
@@ -292,6 +267,7 @@ class Predictor:
                 }
             }
         """
+
         # 1. セクター情報を取得
         company_and_sector = pd.read_sql(
             "SELECT CoName, S17 FROM EquitiesMaster WHERE Code = ?",
@@ -305,49 +281,58 @@ class Predictor:
         company_name = company_and_sector.iloc[0]["CoName"]
         sector_name_en = self.repo.get_sector_info_by_code(sector_code)["S17NmEn"]
 
-        # 2. 直近60日の株価＋財務データを取得
-        df = self._get_recent_data(code, days=60)
+        # 2. 直近データを取得（★ days を 120 に拡大 — 特徴量計算に必要なウィンドウ分を確保）
+        df = self._get_recent_data(code, days=120)
         if df is None or df.empty:
             raise ValueError(f"銘柄 {code} のデータがDBに存在しません。")
 
-        # 3. 特徴量を生成（最新の1行）
-        latest = self._build_latest_features(df)
+        # 3. ★ feature_engineer で特徴量を生成（学習時と完全に同じロジック）
+        df["Code"] = code  # ★ Code列が確実に存在するよう補完
+        macro_df = self.macro_repo.get_all_pivoted()
+        X, _ = self.engineer.create_features_and_targets(df, macro_df=macro_df)
 
-        # 4. 銘柄基本情報を取得
-        current_price = float(latest["AdjC"].iloc[0])
+        if X.empty:
+            raise ValueError(f"銘柄 {code} の特徴量生成に失敗しました。")
+
+        # 最新の1行だけ使う
+        latest = X.iloc[[-1]].copy()
+
+        # 4. 銘柄基本情報を取得（変更なし）
+        current_price = float(df["AdjC"].iloc[-1])
         prev_price = float(df["AdjC"].iloc[-2]) if len(df) >= 2 else current_price
         price_change_rate = (current_price - prev_price) / prev_price
 
-        # 5. 各ターゲットのモデルで推論
+        # 5. 各ターゲットのモデルで推論（変更なし）
         metrics = self._load_metrics(sector_code, sector_name_en)
         predictions = {}
 
         for target in self.targets:
             save_data = self._load_model(sector_code, sector_name_en, target)
             model = save_data["model"]
-            scaler = save_data["scaler"]
             feature_names = save_data["feature_names"]
+            model_type = save_data.get("model_type", "regressor")
 
-            # モデルが期待する特徴量だけを抽出・順序を揃える
-            # 欠損している特徴量は0で埋める（推論時のみ）
             missing_features = [f for f in feature_names if f not in latest.columns]
             if missing_features:
-                print(
-                    f"⚠️ 警告: 以下の特徴量が欠損しています（0で埋めます）: {missing_features}"
-                )
+                print(f"⚠️ 特徴量欠損（0埋め）: {missing_features}")
                 for feat in missing_features:
                     latest[feat] = 0.0
 
-            X = latest[feature_names].values
-            X_scaled = scaler.transform(X)
+            X_input = latest[feature_names].values
 
-            # 予測（学習時に*100しているので/100で戻す）
-            predicted_rate = float(model.predict(X_scaled)[0]) / 100
-            up_probability = float(np.clip(0.5 + predicted_rate * 10, 0.0, 1.0))
+            if model_type == "classifier":
+                up_probability = float(model.predict_proba(X_input)[0, 1])
+                predicted_rate = (up_probability - 0.5) * 0.1
+            else:
+                scaler = save_data.get("scaler")
+                if scaler is not None:
+                    X_input = scaler.transform(X_input)
+                predicted_rate = float(model.predict(X_input)[0]) / 100
+                up_probability = float(np.clip(0.5 + predicted_rate * 10, 0.0, 1.0))
 
             predictions[target] = {
-                "rate": round(predicted_rate, 6),  # 騰落率
-                "up_prob": round(up_probability, 4),  # 上がる確率
+                "rate": round(predicted_rate, 6),
+                "up_prob": round(up_probability, 4),
             }
 
         return {
