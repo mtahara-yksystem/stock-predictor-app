@@ -1,5 +1,6 @@
 # backend/app/main.py
 
+from app.api.v1.news_summary import router as news_summary_router
 from app.api.v1.predict import router as predict_router
 from app.api.v1.ranking import router as ranking_router
 from app.api.v1.signal import router as signal_router  # ← 追加
@@ -14,7 +15,8 @@ app = FastAPI(
 
 app.include_router(predict_router, prefix="/api/v1", tags=["predict"])
 app.include_router(ranking_router, prefix="/api/v1/ranking", tags=["ranking"])
-app.include_router(signal_router, prefix="/api/v1/signals", tags=["signal"])  # ← 追加
+app.include_router(signal_router, prefix="/api/v1/signals", tags=["signal"])
+app.include_router(news_summary_router, prefix="/api/v1", tags=["news_summary"])
 
 app.add_middleware(
     CORSMiddleware,

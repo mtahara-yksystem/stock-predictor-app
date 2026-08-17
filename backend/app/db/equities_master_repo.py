@@ -12,15 +12,20 @@ class EquitiesMasterRepo(Database):
         super().__init__()
         self.table_name = "EquitiesMaster"
 
+    def get_by_code(self, code: str):
+        """銘柄コード(Code)で銘柄を取得する"""
+        query = f"""SELECT CoName FROM {self.table_name} WHERE Code = ?"""
+        return pd.read_sql(query, self.engine, params=(str(code),))
+
     def get_codes_by_17sector(self, sector_code: str):
         """17業種コード(S17)で銘柄を検索する"""
-        query = "SELECT Code FROM {self.table_name} WHERE S17 = ?"
+        query = f"""SELECT Code FROM {self.table_name} WHERE S17 = ?"""
         df = pd.read_sql(query, self.engine, params=(str(sector_code),))
         return df["Code"].tolist()
 
     def get_all_codes(self):
         """全銘柄コードを取得する"""
-        query = "SELECT Code FROM {self.table_name}"
+        query = f"""SELECT Code FROM {self.table_name}"""
         df = pd.read_sql(query, self.engine)
         return df["Code"].tolist()
 

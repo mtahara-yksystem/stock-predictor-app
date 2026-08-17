@@ -121,6 +121,14 @@ class FeatureEngineer:
         df["month"] = df["Date"].dt.month
         df["is_month_end"] = df["Date"].dt.is_month_end.astype(int)
 
+        df["quarter"] = df["Date"].dt.quarter  # 四半期（1〜4）
+        df["is_quarter_end"] = df["Date"].dt.is_quarter_end.astype(
+            int
+        )  # 四半期末フラグ
+        df["is_month_start"] = df["Date"].dt.is_month_start.astype(int)  # 月初フラグ
+        # 年初からの経過日数（年間サイクルの位置）
+        df["day_of_year"] = df["Date"].dt.dayofyear
+
         # ===================================================
         # 1. テクニカル特徴量（株価系）
         # ===================================================
@@ -261,14 +269,8 @@ class FeatureEngineer:
         # ② 出来高プロファイル系
         # ===================================================
 
-        # OBV（On Balance Volume）— 価格方向に出来高を累積
-        def _calc_obv(group):
-            direction = np.sign(group["AdjC"].diff())
-            obv = (direction * group["AdjVo"]).cumsum()
-            return obv
-
-        df["obv"] = df.groupby("Code", group_keys=False).apply(_calc_obv)
-
+        direction = np.sign(df.groupby("Code")["AdjC"].transform(lambda x: x.diff()))
+        df["obv"] = (direction * df["AdjVo"]).groupby(df["Code"]).cumsum()
         # OBVの変化率（OBV自体は累積値なので変化率で使う）
         df["obv_chg_5d"] = df.groupby("Code")["obv"].transform(
             lambda x: x.pct_change(periods=5, fill_method=None)
@@ -389,7 +391,7 @@ class FeatureEngineer:
         # ★ 銘柄コードをカテゴリ特徴量として追加
         # XGBoostはカテゴリ型をネイティブに扱える
         # ===================================================
-        df["code_cat"] = df["Code"].astype("category")
+        df["code_cat"] = pd.Categorical(df["Code"]).codes
 
         # ===================================================
         # 5. 学習に使わないカラムを除外
@@ -414,6 +416,19 @@ class FeatureEngineer:
             "NP",
             "Eq",
             "EqAR",
+            # ★ 以下を追加（重要度が低くノイズになっている特徴量）
+            "AdjO",  # 重要度0.0104 — AdjCと相関が高く冗長
+            "AdjH",  # 重要度0.0136 — 同上
+            "AdjVo",  # 重要度0.0105 — volume_ratioで代替済み
+            "close_lag_1",  # ラグ系は全体的に低重要度
+            "close_lag_3",
+            "close_lag_5",
+            "return_lag_1",  # 重要度0.0097
+            "return_lag_3",  # 重要度0.0099
+            "return_lag_5",  # 重要度0.0105
+            "sma5",  # AdjCの単純変換、sma_distで代替済み
+            "sma25",  # 同上
+            "usdjpy_chg",  # 重要度0.0041 — 唯一のノイズ候補
         ]
         actual_drop_cols = [c for c in drop_cols if c in df.columns]
         feature_cols = [c for c in df.columns if c not in actual_drop_cols]

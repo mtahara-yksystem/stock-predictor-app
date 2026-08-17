@@ -12,7 +12,11 @@ HYPERPARAMS = {
 }
 
 # ノイズゾーンの閾値（この絶対値未満のサンプルは学習から除外）
-DEAD_ZONE_THRESHOLD = 0.005  # ±0.5%
+DEAD_ZONE_THRESHOLD = {
+    "target_1d": 0.005,  # ±0.5%（翌日は動きが小さいのでそのまま）
+    "target_5d": 0.015,  # ±1.5%（5日では適度な閾値）
+    "target_10d": 0.02,  # ±2.0%（10日はそのまま）
+}
 
 
 def _to_class_label(y_regression, threshold=DEAD_ZONE_THRESHOLD):
@@ -63,11 +67,10 @@ class Trainer:
         hyperparams_summary = {}
 
         for target_col in self.targets:
-            print(f"\n🌲 {self.sector_name} [{target_col}] の学習を開始...")
-
-            # ① 回帰ターゲット → クラスラベルに変換
             y_raw = y_all[target_col]
-            y_labeled = _to_class_label(y_raw)
+            # ★ ターゲットごとの閾値を適用
+            threshold = DEAD_ZONE_THRESHOLD[target_col]
+            y_labeled = _to_class_label(y_raw, threshold=threshold)
 
             # ② ノイズゾーンのサンプルを除外
             valid_mask_train = y_labeled[y_labeled.index <= split_date].notna()
