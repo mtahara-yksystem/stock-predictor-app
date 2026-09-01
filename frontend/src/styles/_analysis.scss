@@ -1,0 +1,99 @@
+@use './variables' as *;
+@use './mixins' as *;
+
+.analysis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $spacing-16;
+  margin-top: $spacing-16;
+  margin-bottom: $spacing-32;
+
+  @include responsive(md) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.analysis-card {
+  @include card-base;
+  padding: $spacing-20;
+}
+
+.analysis-card-header {
+  display: flex;
+  align-items: center;
+  gap: $spacing-8;
+  margin-bottom: $spacing-14;
+}
+
+.analysis-icon {
+  font-size: $font-size-18;
+}
+
+.analysis-title {
+  @include mono-label;
+  color: $text-primary;
+  font-weight: 700;
+}
+
+.analysis-updated {
+  margin-left: auto;
+  font-family: $font-mono;
+  font-size: $font-size-9;
+  color: $text-muted;
+}
+
+.analysis-trend-badge {
+  margin-left: auto;
+  font-family: $font-mono;
+  font-size: $font-size-9;
+  padding: 2px $spacing-8;
+  border-radius: $radius-sm;
+
+  &-improving {
+    background: rgba(0, 255, 136, 0.12);
+    color: $up;
+  }
+  &-stable {
+    background: rgba(240, 192, 64, 0.12);
+    color: $yellow;
+  }
+  &-declining {
+    background: rgba(255, 68, 102, 0.12);
+    color: $down;
+  }
+}
+
+.analysis-summary-text {
+  font-size: $font-size-13;
+  line-height: 1.8;
+  color: $text-secondary;
+  margin-bottom: $spacing-14;
+}
+
+.analysis-points {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-6;
+  margin-bottom: $spacing-10;
+}
+
+.analysis-point {
+  font-size: $font-size-12;
+
+  &-positive { color: $up; }
+  &-concern { color: $down; }
+}
+
+.analysis-disclaimer {
+  border-top: 1px solid $border;
+  padding-top: $spacing-10;
+  font-size: $font-size-11;
+  color: $text-muted;
+  line-height: 1.6;
+}
+
+.analysis-loading,
+.analysis-error {
+  font-size: $font-size-12;
+  color: $text-muted;
+}

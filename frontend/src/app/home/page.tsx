@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { formatPrice, formatRate, formatProb, getStatusMeta } from "@/lib/utils";
 import { NewsSummaryResponse } from "@/types/newsSummary";
+import { NewsSummaryCard } from "@/components/common/NewsSummaryCard";
+import { FinancialSummaryCard } from "@/components/common/FinancialSummaryCard";
 
 export interface PredictionDetail {
   rate: number;
@@ -220,6 +222,10 @@ export default function Home() {
               prediction={predictResult.predictions.target_10d}
               metric={predictResult.metrics.target_10d}
             />
+          </div>
+          <div className="analysis-grid">
+            <NewsSummaryCard code={predictResult.code} />
+            <FinancialSummaryCard code={predictResult.code} />
           </div>
           {newsSummaryResult && (
             <section className="news-summary-section">

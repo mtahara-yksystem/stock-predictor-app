@@ -1,9 +1,10 @@
 # backend/app/main.py
 
+from app.api.v1.financial_summary import router as financial_summary_router
 from app.api.v1.news_summary import router as news_summary_router
 from app.api.v1.predict import router as predict_router
 from app.api.v1.ranking import router as ranking_router
-from app.api.v1.signal import router as signal_router  # ← 追加
+from app.api.v1.signal import router as signal_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,7 +18,11 @@ app.include_router(predict_router, prefix="/api/v1", tags=["predict"])
 app.include_router(ranking_router, prefix="/api/v1/ranking", tags=["ranking"])
 app.include_router(signal_router, prefix="/api/v1/signals", tags=["signal"])
 app.include_router(news_summary_router, prefix="/api/v1", tags=["news_summary"])
-
+app.include_router(
+    financial_summary_router,
+    prefix="/api/v1/financial-summary",
+    tags=["financial_summary"],
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],

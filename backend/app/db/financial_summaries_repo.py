@@ -53,3 +53,18 @@ class FinancialSummariesRepo(Database):
         query = f"SELECT MAX(DiscDate) FROM {self.table_name} WHERE Code = ?"
         df = pd.read_sql(query, self.engine, params=(code,))
         return df.iloc[0, 0] if not df.empty else None
+
+    def get_recent_for_llm(self, code: str, limit: int = 4) -> list[dict]:
+        """LLM要約用に、直近N四半期分の主要財務指標を取得する"""
+        query = f"""
+            SELECT DiscDate, CurPerType, Sales, OP, OdP, NP, EPS, EqAR, BPS,
+                  FSales, FOP, FOdP, FNP
+            FROM {self.table_name}
+            WHERE Code = ?
+            ORDER BY DiscDate DESC
+            LIMIT ?
+        """
+        df = pd.read_sql(query, self.engine, params=(code, limit))
+        if df.empty:
+            return []
+        return df.sort_values("DiscDate").to_dict(orient="records")
