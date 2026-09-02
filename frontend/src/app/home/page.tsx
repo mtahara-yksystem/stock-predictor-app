@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { formatPrice, formatRate, formatProb, getStatusMeta } from "@/lib/utils";
-import { NewsSummaryResponse } from "@/types/newsSummary";
 import { NewsSummaryCard } from "@/components/common/NewsSummaryCard";
 import { FinancialSummaryCard } from "@/components/common/FinancialSummaryCard";
 
@@ -96,13 +95,11 @@ export default function Home() {
   const searchParams = useSearchParams();
   const [code, setCode] = useState("");
   const [predictResult, setPredictResult] = useState<PredictResponse | null>(null);
-  const [newsSummaryResult, setNewsSummaryResult] = useState<NewsSummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleFetchData = async () => {
     handlePredict();
-    handleNewsSummary();
   }
 
   // 予測実行ロジック
@@ -125,33 +122,12 @@ export default function Home() {
     }
   };
 
-  // ニュース要約ロジック
-  const handleNewsSummary = async (targetCode?: string) => {
-    const activeCode = targetCode || code;
-    if (!activeCode.trim()) return;
-
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/news-summary/${activeCode.trim()}`);
-      if (!res.ok) throw new Error("銘柄が見つからないか、予測データがありません");
-      const data: NewsSummaryResponse = await res.json();
-      setNewsSummaryResult(data);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "予期せぬエラーが発生しました");
-      setNewsSummaryResult(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // URLパラメータ（ランキングからの遷移）対応
   useEffect(() => {
     const queryCode = searchParams.get("code");
     if (queryCode) {
       setCode(queryCode);
       handlePredict(queryCode);
-      handleNewsSummary(queryCode);
     }
   }, [searchParams]);
 
@@ -227,43 +203,6 @@ export default function Home() {
             <NewsSummaryCard code={predictResult.code} />
             <FinancialSummaryCard code={predictResult.code} />
           </div>
-          {newsSummaryResult && (
-            <section className="news-summary-section">
-              <div className="news-summary-header">
-                <span className="mono-label">材料整理（AI要約）</span>
-                <span className="news-summary-date">{newsSummaryResult.generated_at}時点</span>
-              </div>
-
-              <p className="news-summary-text">{newsSummaryResult.summary}</p>
-
-              <div className="sentiment-grid">
-                <div className="sentiment-col sentiment-positive">
-                  <div className="sentiment-label">ポジティブ材料</div>
-                  {newsSummaryResult.sentiment.positive.map((item, i) => (
-                    <div key={i} className="sentiment-item">・{item}</div>
-                  ))}
-                </div>
-                <div className="sentiment-col sentiment-negative">
-                  <div className="sentiment-label">ネガティブ材料</div>
-                  {newsSummaryResult.sentiment.negative.map((item, i) => (
-                    <div key={i} className="sentiment-item">・{item}</div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="topics-list">
-                {newsSummaryResult.topics.map((t, i) => (
-                  <div key={i} className="topic-item">
-                    <span className="topic-source">[{t.source}]</span> {t.text}
-                  </div>
-                ))}
-              </div>
-
-              <p className="disclaimer">
-                ※本要約は与えられた情報の客観的整理であり、投資助言ではありません。
-              </p>
-            </section>
-          )}
         </section>
       )}
     </main>

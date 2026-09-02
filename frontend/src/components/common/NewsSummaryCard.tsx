@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { NewsSummaryResponse } from "@/types/analysis";
+import type { NewsSummaryResponse } from "@/types/newsSummary";
 
 interface Props {
   code: string;
@@ -49,12 +49,23 @@ export const NewsSummaryCard = ({ code }: Props) => {
 
       {data && !loading && !error && (
         <>
+          <span className="news-summary-date">{data.generated_at}時点</span>
           <p className="analysis-summary-text">{data.summary}</p>
           {data.sentiment.positive.length > 0 && (
             <div className="analysis-points">
               {data.sentiment.positive.map((p, i) => (
                 <div key={i} className="analysis-point analysis-point-positive">
                   ＋ {p}
+                </div>
+              ))}
+              {data.sentiment.negative.map((p, i) => (
+                <div key={i} className="analysis-point analysis-point-concern">
+                  ー {p}
+                </div>
+              ))}
+              {data.topics.map((t, i) => (
+                <div key={i} className="analysis-point analysis-point-positive">
+                  {t.text}
                 </div>
               ))}
             </div>

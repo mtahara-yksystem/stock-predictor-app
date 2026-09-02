@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { FinancialSummaryResponse } from "@/types/analysis";
-import { TREND_LABEL } from "@/types/analysis";
+import type { FinancialSummaryResponse } from "@/types/financialSummary";
+import { TREND_LABEL } from "@/types/financialSummary";
 
 interface Props {
   code: string;
